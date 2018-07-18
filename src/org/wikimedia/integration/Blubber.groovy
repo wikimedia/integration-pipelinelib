@@ -12,18 +12,18 @@ class Blubber implements Serializable {
   final String configPath
 
   /**
-   * Jenkins pipeline steps context.
+   * Jenkins pipeline workflow script context.
    */
-  final def steps
+  final def workflowScript
 
   /**
    * Blubber constructor.
    *
-   * @param steps Jenkins pipeline steps context.
+   * @param workflowScript Jenkins workflow script context.
    * @param configPath Blubber config path.
    */
-  Blubber(steps, String configPath) {
-    this.steps = steps
+  Blubber(workflowScript, String configPath) {
+    this.workflowScript = workflowScript
     this.configPath = configPath
   }
 
@@ -32,13 +32,17 @@ class Blubber implements Serializable {
    * labels.
    *
    * @param variant Blubber variant name that should be built.
-   * @param tag Tag to use for built image.
    * @param labels Additional "name=value" labels to add to the image.
    */
-  void build(String variant, String tag, List<String> labels) {
+  String build(String variant, List<String> labels) {
     def labelFlags = labels.collect { "--label ${arg(it)}" }.join(" ")
 
-    steps.sh "blubber ${arg(this.configPath)} ${arg(variant)} | " +
-             "docker build --pull --tag ${arg(tag)} ${labelFlags} --file - ."
+    def cmd = "blubber ${arg(configPath)} ${arg(variant)} | " +
+              "docker build --pull ${labelFlags} --file - ."
+
+    def output = workflowScript.sh(returnStdout: true, script: cmd)
+
+    // Return just the image ID from `docker build` output
+    output.substring(output.lastIndexOf(" ") + 1).trim()
   }
 }

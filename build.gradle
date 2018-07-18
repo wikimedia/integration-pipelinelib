@@ -22,3 +22,9 @@ sourceSets {
     }
   }
 }
+
+test {
+  testLogging {
+    exceptionFormat = 'full'
+  }
+}
