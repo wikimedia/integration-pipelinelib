@@ -32,10 +32,10 @@ class Blubber implements Serializable {
    * labels.
    *
    * @param variant Blubber variant name that should be built.
-   * @param labels Additional "name=value" labels to add to the image.
+   * @param labels Additional name/value labels to add to the image.
    */
-  String build(String variant, List<String> labels) {
-    def labelFlags = labels.collect { "--label ${arg(it)}" }.join(" ")
+  String build(String variant, Map labels = [:]) {
+    def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
 
     def cmd = "blubber ${arg(configPath)} ${arg(variant)} | " +
               "docker build --pull ${labelFlags} --file - ."

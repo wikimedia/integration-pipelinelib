@@ -45,7 +45,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def runner = new PipelineRunner(new WorkflowScript(), blubberConfig: "nonexistent/blubber.yaml")
 
     shouldFail(FileNotFoundException) {
-      runner.build("foo", ["bar=baz"])
+      runner.build("foo", [bar: "baz"])
     }
   }
 
@@ -58,14 +58,14 @@ class PipelineRunnerTest extends GroovyTestCase {
     filesMock.demand.exists { true }
     blubberMock.demand.build { variant, labels ->
       assert variant == "foo"
-      assert labels == ["bar=baz"]
+      assert labels == [bar: "baz"]
 
       "fooimageID"
     }
 
     blubberMock.use {
       filesMock.use {
-        runner.build("foo", ["bar=baz"])
+        runner.build("foo", [bar: "baz"])
       }
     }
   }

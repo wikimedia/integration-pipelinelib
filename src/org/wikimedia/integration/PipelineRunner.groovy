@@ -80,9 +80,9 @@ class PipelineRunner implements Serializable {
    * Builds the given image variant and returns an ID for the resulting image.
    *
    * @param variant Image variant name that should be built.
-   * @param labels Additional "name=value" labels to add to the image metadata.
+   * @param labels Additional name/value labels to add to the image metadata.
    */
-  String build(String variant, List<String> labels) {
+  String build(String variant, Map labels = [:]) {
     def cfg = getConfigFile(blubberConfig)
 
     if (!Files.exists(Paths.get(cfg))) {

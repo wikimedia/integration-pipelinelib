@@ -22,7 +22,7 @@ class BlubberTestCase extends GroovyTestCase {
 
     mock.use {
       def blubber = new Blubber(new WorkflowScript(), "foo/blubber.yaml")
-      def imageID = blubber.build("foo", ["foo=a", "bar=b"])
+      def imageID = blubber.build("foo", [foo: "a", bar: "b"])
 
       assert imageID == "bf1e86190382"
     }
