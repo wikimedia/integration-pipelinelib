@@ -1,8 +1,10 @@
-version: v2
-base: docker-registry.wikimedia.org/wikimedia-stretch
-apt: { packages: [gradle] }
+version: v3
+base: gradle:jre
 
 variants:
   test:
     runs: { insecurely: true }
+    builder:
+      command: [gradle, deps]
+      requirements: [build.gradle]
     entrypoint: [gradle, test]

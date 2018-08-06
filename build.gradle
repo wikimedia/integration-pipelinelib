@@ -28,3 +28,13 @@ test {
     exceptionFormat = 'full'
   }
 }
+
+/**
+ * Build task used to preload all dependencies.
+ */
+task deps(type: Exec) {
+  // Simply reading testRuntime.files will cause gradle to resolve/install
+  // runtime and test dependencies
+  configurations.testRuntime.files
+  commandLine 'true'
+}
