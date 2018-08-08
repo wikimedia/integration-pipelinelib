@@ -80,4 +80,54 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
     }
   }
+
+  void testRegisterAs() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker tag 'fooID' 'foo.example/foorepo/fooname:footag' && " +
+                    "sudo /usr/local/bin/docker-pusher 'foo.example/foorepo/fooname:footag'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      registry: 'foo.example',
+                                      repository: 'foorepo')
+
+      runner.registerAs("fooID", "fooname", "footag")
+    }
+  }
+
+  void testRegisterAs_bailsOnSlashes() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      shouldFail(AssertionError) {
+        runner.registerAs("fooID", "foo/name", "footag")
+      }
+    }
+  }
+
+  void testRun() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.timeout { Map args, Closure c ->
+      assert args.time == 20
+      assert args.unit == "MINUTES"
+
+      c()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "exec docker run 'foo'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.run("foo")
+    }
+  }
 }

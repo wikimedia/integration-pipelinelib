@@ -2,6 +2,8 @@ package org.wikimedia.integration
 
 import java.io.FileNotFoundException
 
+import static org.wikimedia.integration.Utility.*
+
 /**
  * Provides an interface to common pipeline build/run/deploy functions.
  *
