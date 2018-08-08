@@ -1,8 +1,6 @@
 package org.wikimedia.integration
 
 import java.io.FileNotFoundException
-import java.nio.file.Files
-import java.nio.file.Paths
 
 /**
  * Provides an interface to common pipeline build/run/deploy functions.
@@ -85,7 +83,7 @@ class PipelineRunner implements Serializable {
   String build(String variant, Map labels = [:]) {
     def cfg = getConfigFile(blubberConfig)
 
-    if (!Files.exists(Paths.get(cfg))) {
+    if (!workflowScript.fileExists(cfg)) {
       throw new FileNotFoundException("failed to build image: no Blubber config found at ${cfg}")
     }
 
