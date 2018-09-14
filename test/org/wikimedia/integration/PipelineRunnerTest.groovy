@@ -121,7 +121,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == "exec docker run 'foo'"
+      assert cmd == "exec docker run --rm 'foo'"
     }
 
     mockWorkflow.use {

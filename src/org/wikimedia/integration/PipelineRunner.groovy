@@ -174,7 +174,7 @@ class PipelineRunner implements Serializable {
    */
   void run(String imageID) {
     workflowScript.timeout(time: 20, unit: "MINUTES") {
-      workflowScript.sh("exec docker run ${arg(imageID)}")
+      workflowScript.sh("exec docker run --rm ${arg(imageID)}")
     }
   }
 
