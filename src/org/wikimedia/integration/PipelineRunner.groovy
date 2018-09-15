@@ -174,6 +174,16 @@ class PipelineRunner implements Serializable {
   }
 
   /**
+   * Removes the given image from the local cache. All tags are removed from
+   * the image as well.
+   *
+   * @param imageID ID of the image to remove.
+   */
+  void removeImage(String imageID) {
+    workflowScript.sh("docker rmi --force ${arg(imageID)}")
+  }
+
+  /**
    * Runs a container using the image specified by the given ID.
    *
    * @param imageID Image ID.

@@ -267,6 +267,20 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testRemoveImage() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker rmi --force 'fooID'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.removeImage("fooID")
+    }
+  }
+
   void testRun() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
