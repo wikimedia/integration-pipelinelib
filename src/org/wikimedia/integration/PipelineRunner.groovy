@@ -35,6 +35,12 @@ class PipelineRunner implements Serializable {
   def helmConfig = "helm.yaml"
 
   /**
+   * Absolute path to a Kubernetes config file to specify when executing
+   * `helm` or other k8s related commands. By default, none will be specified.
+   */
+  def kubeConfig = null
+
+  /**
    * Namespace used for Helm/Kubernetes deployments.
    */
   def namespace = "ci"
@@ -104,13 +110,13 @@ class PipelineRunner implements Serializable {
    */
   String deploy(String imageName, String imageTag, Map overrides = [:]) {
     def cfg = workflowScript.readYaml(file: getConfigFile(helmConfig))
-    assert cfg.chart : "you must define 'chart: <helm chart url>' in ${cfg}"
+
+    assert cfg instanceof Map && cfg.chart : "you must define 'chart: <helm chart url>' in ${cfg}"
 
     def values = [
-      "namespace": namespace,
       "docker.registry": registry,
       "docker.pull_policy": pullPolicy,
-      "main_app.image": [repository, "/", imageName].join("/"),
+      "main_app.image": [repository, imageName].join("/"),
       "main_app.version": imageTag,
     ] + overrides
 
@@ -118,8 +124,8 @@ class PipelineRunner implements Serializable {
 
     def release = imageName + "-" + randomAlphanum(8)
 
-    workflowScript.sh "helm install --set ${values} -n ${arg(release)} " +
-                      "--debug --wait --timeout ${timeout} ${arg(cfg.chart)}"
+    helm("install --namespace=${arg(namespace)} --set ${values} -n ${arg(release)} " +
+         "--debug --wait --timeout ${timeout} ${arg(cfg.chart)}")
 
     release
   }
@@ -139,7 +145,7 @@ class PipelineRunner implements Serializable {
    * @param release Previously deployed release name.
    */
   void purgeRelease(String release) {
-    workflowScript.sh "helm delete --purge ${arg(release)}"
+    helm("delete --purge ${arg(release)}")
   }
 
   /**
@@ -195,6 +201,24 @@ class PipelineRunner implements Serializable {
    * @param release Previously deployed release name.
    */
   void testRelease(String release) {
-    workflowScript.sh "helm test --cleanup ${arg(release)}"
+    helm("test --cleanup ${arg(release)}")
+  }
+
+  private
+
+  /**
+   * Execute a helm command, specifying the right tiller namespace.
+   */
+  void helm(String cmd) {
+    kubeCmd("helm --tiller-namespace=${arg(namespace)} ${cmd}")
+  }
+
+  /**
+   * Execute a Kubernetes related command, specifying the configured
+   * kubeConfig.
+   */
+  void kubeCmd(String cmd) {
+    def env = kubeConfig ? "KUBECONFIG=${arg(kubeConfig)} " : ""
+    workflowScript.sh("${env}${cmd}")
   }
 }

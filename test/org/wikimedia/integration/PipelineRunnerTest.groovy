@@ -6,9 +6,20 @@ import java.io.FileNotFoundException
 
 import org.wikimedia.integration.Blubber
 import org.wikimedia.integration.PipelineRunner
+import org.wikimedia.integration.Utility
 
 class PipelineRunnerTest extends GroovyTestCase {
   private class WorkflowScript {} // Mock for Jenkins Pipeline workflow context
+
+  void setUp() {
+    // Mock all static calls to Utility.randomAlphanum
+    Utility.metaClass.static.randomAlphanum = { "randomfoo" }
+  }
+
+  void tearDown() {
+    // Reset static mocks
+    Utility.metaClass = null
+  }
 
   void testConstructor_workflowScript() {
     new PipelineRunner(new WorkflowScript())
@@ -78,6 +89,152 @@ class PipelineRunnerTest extends GroovyTestCase {
 
         runner.build("foo", [bar: "baz"])
       }
+    }
+  }
+
+  void testDeploy_checksConfigForChart() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.readYaml { Map args ->
+      assert args.file == ".foo/bar.yaml"
+
+      [chart: null]
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      configPath: ".foo",
+                                      helmConfig: "bar.yaml")
+
+      shouldFail(AssertionError) {
+        runner.deploy("foo/name", "footag")
+      }
+    }
+  }
+
+  void testDeploy_executesHelm() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.readYaml {
+      [chart: "http://an.example/chart.tgz"]
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "helm --tiller-namespace='ci' install " +
+                        "--namespace='ci' --set " +
+                        "'docker.registry=docker-registry.wikimedia.org'," +
+                        "'docker.pull_policy=IfNotPresent'," +
+                        "'main_app.image=wikimedia/foo/name'," +
+                        "'main_app.version=footag' " +
+                        "-n 'foo/name-randomfoo' " +
+                        "--debug --wait --timeout 120 " +
+                        "'http://an.example/chart.tgz'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.deploy("foo/name", "footag")
+    }
+  }
+
+  void testDeploy_executesHelmWithKubeConfig() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.readYaml {
+      [chart: "http://an.example/chart.tgz"]
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
+                        "helm --tiller-namespace='ci' install " +
+                        "--namespace='ci' --set " +
+                        "'docker.registry=docker-registry.wikimedia.org'," +
+                        "'docker.pull_policy=IfNotPresent'," +
+                        "'main_app.image=wikimedia/foo/name'," +
+                        "'main_app.version=footag' " +
+                        "-n 'foo/name-randomfoo' " +
+                        "--debug --wait --timeout 120 " +
+                        "'http://an.example/chart.tgz'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      kubeConfig: "/etc/kubernetes/foo.config")
+
+      runner.deploy("foo/name", "footag")
+    }
+  }
+
+  void testPurgeRelease_executesHelm() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "helm --tiller-namespace='ci' delete --purge 'foorelease'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.purgeRelease("foorelease")
+    }
+  }
+
+  void testPurgeRelease_executesHelmWithKubeConfig() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
+                        "helm --tiller-namespace='ci' delete --purge 'foorelease'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      kubeConfig: "/etc/kubernetes/foo.config")
+
+      runner.purgeRelease("foorelease")
+    }
+  }
+
+  void testTestRelease_executesHelm() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "helm --tiller-namespace='ci' test --cleanup 'foorelease'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.testRelease("foorelease")
+    }
+  }
+
+  void testTestRelease_executesHelmWithKubeConfig() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
+                        "helm --tiller-namespace='ci' test --cleanup 'foorelease'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      kubeConfig: "/etc/kubernetes/foo.config")
+
+      runner.testRelease("foorelease")
     }
   }
 
