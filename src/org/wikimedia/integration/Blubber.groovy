@@ -1,9 +1,11 @@
 package org.wikimedia.integration
 
+import java.net.URLEncoder
+
 import static org.wikimedia.integration.Utility.arg
 
 /**
- * Provides an interface to Blubber for building container images.
+ * Provides an interface to Blubber for generating Dockerfiles.
  */
 class Blubber implements Serializable {
   /**
@@ -17,32 +19,59 @@ class Blubber implements Serializable {
   final def workflowScript
 
   /**
+   * Blubberoid base service URL.
+   */
+  final String blubberoidURL
+
+  /**
    * Blubber constructor.
    *
    * @param workflowScript Jenkins workflow script context.
    * @param configPath Blubber config path.
+   * @param blubberoidURL Blubberoid service URL.
    */
-  Blubber(workflowScript, String configPath) {
+  Blubber(workflowScript, String configPath, String blubberoidURL) {
     this.workflowScript = workflowScript
     this.configPath = configPath
+    this.blubberoidURL = blubberoidURL
   }
 
   /**
-   * Builds the given variant and tags the image with the given tag name and
-   * labels.
+   * Returns a valid Dockerfile for the given variant.
    *
-   * @param variant Blubber variant name that should be built.
-   * @param labels Additional name/value labels to add to the image.
+   * @param variant Blubber variant name.
    */
-  String build(String variant, Map labels = [:]) {
-    def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
+  String generateDockerfile(String variant) {
+    def config = workflowScript.readFile(file: configPath)
+    def headers = [[name: "content-type", value: getConfigMediaType()]]
+    def response = workflowScript.httpRequest(url: getRequestURL(variant),
+                                              httpMode: "POST",
+                                              customHeaders: headers,
+                                              requestBody: config,
+                                              consoleLogResponseBody: true,
+                                              validResponseCodes: "200")
 
-    def cmd = "blubber ${arg(configPath)} ${arg(variant)} | " +
-              "docker build --pull ${labelFlags} --file - ."
+    response.content
+  }
 
-    def output = workflowScript.sh(returnStdout: true, script: cmd)
+  /**
+   * Returns a request media type based on the config file extension.
+   */
+  String getConfigMediaType() {
+    def ext = configPath.substring(configPath.lastIndexOf(".") + 1)
 
-    // Return just the image ID from `docker build` output
-    output.substring(output.lastIndexOf(" ") + 1).trim()
+    switch (ext) {
+      case ["yaml", "yml"]:
+        return "application/yaml"
+      default:
+        return "application/json"
+    }
+  }
+
+  /**
+   * Return a request URL for the given variant.
+   */
+  String getRequestURL(String variant) {
+    blubberoidURL + URLEncoder.encode(variant, "UTF-8")
   }
 }

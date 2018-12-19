@@ -25,6 +25,11 @@ class PipelineRunner implements Serializable {
   def blubberConfig = "blubber.yaml"
 
   /**
+   * Base URL for the Blubberoid service.
+   */
+  def blubberoidURL = "https://blubberoid.wikimedia.org/v1/"
+
+  /**
    * Directory in which pipeline configuration is stored.
    */
   def configPath = ".pipeline"
@@ -95,9 +100,18 @@ class PipelineRunner implements Serializable {
       throw new FileNotFoundException("failed to build image: no Blubber config found at ${cfg}")
     }
 
-    def blubber = new Blubber(workflowScript, cfg)
+    def blubber = new Blubber(workflowScript, cfg, blubberoidURL)
+    def dockerfile = getConfigFile("Dockerfile")
 
-    blubber.build(variant, labels)
+    workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
+
+    def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
+    def dockerBuild = "docker build --pull ${labelFlags} --file ${arg(dockerfile)} ."
+
+    def output = workflowScript.sh(returnStdout: true, script: dockerBuild)
+
+    // Return just the image ID from `docker build` output
+    output.substring(output.lastIndexOf(" ") + 1).trim()
   }
 
   /**

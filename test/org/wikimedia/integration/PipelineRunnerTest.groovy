@@ -71,23 +71,38 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
-  void testBuild_delegatesToBlubber() {
+  void testBuild_generatesDockerfileAndBuilds() {
     def mockWorkflow = new MockFor(WorkflowScript)
     def mockBlubber = new MockFor(Blubber)
 
     mockWorkflow.demand.fileExists { true }
-    mockBlubber.demand.build { variant, labels ->
-      assert variant == "foo"
-      assert labels == [bar: "baz"]
 
-      "fooimageID"
+    mockBlubber.demand.generateDockerfile { variant ->
+      assert variant == "foo"
+
+      "BASE: foo\n"
+    }
+
+    mockWorkflow.demand.writeFile { args ->
+      assert args.text == "BASE: foo\n"
+      assert args.file == ".pipeline/Dockerfile"
+    }
+
+    mockWorkflow.demand.sh { args ->
+      assert args.returnStdout
+      assert args.script == "docker build --pull --label 'foo=a' --label 'bar=b' --file '.pipeline/Dockerfile' ."
+
+      // Mock `docker build` output to test that we correctly parse the image ID
+      return "Removing intermediate container foo\n" +
+             " ---> bf1e86190382\n" +
+             "Successfully built bf1e86190382\n"
     }
 
     mockWorkflow.use {
       mockBlubber.use {
         def runner = new PipelineRunner(new WorkflowScript())
 
-        runner.build("foo", [bar: "baz"])
+        assert runner.build("foo", [foo: "a", bar: "b"]) == "bf1e86190382"
       }
     }
   }
