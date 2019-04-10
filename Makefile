@@ -7,6 +7,14 @@ DOCKER_TAG := piplinelib-tests-$(shell date -I)
 
 .PHONY: test
 
+clean:
+ifneq (,$(DOCKER))
+	$(DOCKER_STOP_ALL) 2> /dev/null || true
+	$(DOCKER_RMI) 2> /dev/null || true
+else
+	@echo "Not using Docker. Nothing to do."
+endif
+
 doc: docs
 docs:
 	gradle groovydoc

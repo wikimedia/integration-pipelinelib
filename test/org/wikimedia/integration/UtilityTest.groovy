@@ -7,6 +7,10 @@ class UtilityTestCase extends GroovyTestCase {
     assert arg("foo bar'\n baz") == """'foo bar'\\''\n baz'"""
   }
 
+  void testArgs() {
+    assert args(["foo bar'\n baz", "qux"]) == """'foo bar'\\''\n baz' 'qux'"""
+  }
+
   void testRandomAlphanum() {
     def expectedChars = ('a'..'z') + ('0'..'9')
     def alphanum = randomAlphanum(12)

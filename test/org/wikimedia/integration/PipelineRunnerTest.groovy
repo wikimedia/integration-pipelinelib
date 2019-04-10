@@ -35,6 +35,12 @@ class PipelineRunnerTest extends GroovyTestCase {
     assert pipeline.getConfigFile("bar") == "foo/bar"
   }
 
+  void testGetTempFile() {
+    def pipeline = new PipelineRunner(new WorkflowScript(), configPath: "foo")
+
+    assert pipeline.getTempFile("bar") ==~ /^foo\/bar[a-z0-9]+$/
+  }
+
   void testQualifyRegistryPath() {
     def pipeline = new PipelineRunner(new WorkflowScript())
 
@@ -85,12 +91,13 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.writeFile { args ->
       assert args.text == "BASE: foo\n"
-      assert args.file == ".pipeline/Dockerfile"
+      assert args.file ==~ /^\.pipeline\/Dockerfile\.[a-z0-9]+$/
     }
 
     mockWorkflow.demand.sh { args ->
       assert args.returnStdout
-      assert args.script == "docker build --pull --label 'foo=a' --label 'bar=b' --file '.pipeline/Dockerfile' ."
+      assert args.script ==~ (/^docker build --pull --label 'foo=a' --label 'bar=b' / +
+                            /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' \.$/)
 
       // Mock `docker build` output to test that we correctly parse the image ID
       return "Removing intermediate container foo\n" +

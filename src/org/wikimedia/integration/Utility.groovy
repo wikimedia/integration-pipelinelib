@@ -25,11 +25,28 @@ class Utility {
   }
 
   /**
+   * Quotes all given shell arguments.
+   *
+   * @param arguments Shell argument.
+   * @return Quoted shell arguments.
+   */
+  static String args(List arguments) {
+    arguments.collect { arg(it) }.join(" ")
+  }
+
+  /**
    * Returns a random alpha-numeric string that's length long.
    *
    * @param length Desired length of string.
    */
   static String randomAlphanum(length) {
     (1..length).collect { alphanums[random.nextInt(alphanums.size())] }.join()
+  }
+
+  /**
+   * Returns a timestamp suitable for use in image names, tags, etc.
+   */
+  static String timestampLabel() {
+    new Date().format("yyyy-MM-dd-HH-mmss", TimeZone.getTimeZone("UTC"))
   }
 }

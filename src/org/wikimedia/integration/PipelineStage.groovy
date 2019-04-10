@@ -1,0 +1,525 @@
+package org.wikimedia.integration
+
+import com.cloudbees.groovy.cps.NonCPS
+
+import static org.wikimedia.integration.Utility.timestampLabel
+
+import org.wikimedia.integration.ExecutionContext
+import org.wikimedia.integration.PatchSet
+import org.wikimedia.integration.Pipeline
+
+class PipelineStage implements Serializable {
+  static final String SETUP = 'setup'
+  static final String TEARDOWN = 'teardown'
+  static final List STEPS = ['build', 'run', 'publish', 'deploy', 'exports']
+
+
+  Pipeline pipeline
+  String name
+  Map config
+
+  private ExecutionContext.NodeContext context
+
+  /**
+   * Returns an config based on the given one but with default values
+   * inserted.
+   *
+   * @example Shorthand stage config (providing only a stage name)
+   * <pre><code>
+   *   def cfg = [name: "foo"]
+   *
+   *   assert PipelineStage.defaultConfig(cfg) == [
+   *     name: "foo",
+   *     build: '${.stage}',     // builds a variant by the same name
+   *     run: [
+   *       image: '${.imageID}', // runs the variant built by this stage
+   *       arguments: [],
+   *     ],
+   *   ]
+   * </code></pre>
+   *
+   * @example Configuring `run: true` means run the variant built by this
+   * stage
+   * <pre><code>
+   *   def cfg = [name: "foo", build: "foo", run: true]
+   *
+   *   assert PipelineStage.defaultConfig(cfg) == [
+   *     name: "foo",
+   *     build: "foo",
+   *     run: [
+   *       image: '${.imageID}', // runs the variant built by this stage
+   *       arguments: [],
+   *     ],
+   *   ]
+   * </code></pre>
+   *
+   * @example Publish image default configuration
+   * <pre><code>
+   *   def cfg = [image: true]
+   *   def defaults = PipelineStage.defaultConfig(cfg)
+   *
+   *   // publish.image.id defaults to the previously built image
+   *   assert defaults.publish.image.id == '${.imageID}'
+   *
+   *   // publish.image.name defaults to the project name
+   *   assert defaults.publish.image.name == '${setup.project}'
+   *
+   *   // publish.image.tag defaults to {timestamp}-{stage name}
+   *   assert defaults.publish.image.tag == '${setup.timestamp}-${.stage}'
+   * </code></pre>
+   */
+  @NonCPS
+  static Map defaultConfig(Map cfg) {
+    Map dcfg
+
+    // shorthand with just name is: build and run a variant
+    if (cfg.size() == 1 && cfg["name"]) {
+      dcfg = cfg + [
+        build: '${.stage}',
+        run: [
+          image: '${.imageID}',
+        ]
+      ]
+    } else {
+      dcfg = cfg.clone()
+    }
+
+    if (dcfg.run) {
+      // run: true means run the built image
+      if (dcfg.run == true) {
+        dcfg.run = [
+          image: '${.imageID}',
+        ]
+      } else {
+        dcfg.run = dcfg.run.clone()
+      }
+
+      // run.image defaults to previously built image
+      dcfg.run.image = dcfg.run.image ?: '${.imageID}'
+
+      // run.arguments defaults to []
+      dcfg.run.arguments = dcfg.run.arguments ?: []
+    }
+
+    if (dcfg.publish) {
+      def pcfg = dcfg.publish.clone()
+
+      if (pcfg.image) {
+        if (pcfg.image == true) {
+          pcfg.image = [:]
+        } else {
+          pcfg.image = pcfg.image.clone()
+        }
+
+        // publish.image.id defaults to the previously built image
+        pcfg.image.id = pcfg.image.id ?: '${.imageID}'
+
+        // publish.image.name defaults to the project name
+        pcfg.image.name = pcfg.image.name ?: "\${${SETUP}.project}"
+
+        // publish.image.tag defaults to {timestamp}-{stage name}
+        pcfg.image.tag = pcfg.image.tag ?: "\${${SETUP}.timestamp}-\${.stage}"
+
+        pcfg.image.tags = (pcfg.image.tags ?: []).clone()
+      }
+
+      if (pcfg.files) {
+        pcfg.files.paths = pcfg.files.paths.clone()
+      }
+
+      dcfg.publish = pcfg
+    }
+
+    if (dcfg.deploy) {
+      dcfg.deploy = dcfg.deploy.clone()
+
+      dcfg.deploy.image = dcfg.deploy.image ?: '${.publishedImage}'
+      dcfg.deploy.cluster = dcfg.deploy.cluster ?: "ci"
+      dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.test
+    }
+
+    dcfg
+  }
+
+  PipelineStage(Pipeline pline, String stageName, Map stageConfig, nodeContext) {
+    pipeline = pline
+    name = stageName
+    config = stageConfig
+    context = nodeContext
+  }
+
+  /**
+   * Constructs and retruns a closure for this pipeline stage using the given
+   * Jenkins workflow script object.
+   */
+  Closure closure(ws) {
+    ({
+      def runner = pipeline.runner(ws)
+
+      context["stage"] = name
+
+      switch (name) {
+      case SETUP:
+        setup(ws, runner)
+        break
+      case TEARDOWN:
+        teardown(ws, runner)
+        break
+      default:
+        ws.echo("running steps in ${pipeline.directory} with config: ${config.inspect()}")
+
+        ws.dir(pipeline.directory) {
+          for (def stageStep in STEPS) {
+            if (config[stageStep]) {
+              ws.echo("step: ${stageStep}")
+              this."${stageStep}"(ws, runner)
+            }
+          }
+        }
+      }
+    })
+  }
+
+  /**
+   * Returns a set of node labels that will be required for this stage to
+   * function correctly.
+   */
+  Set getRequiredNodeLabels() {
+    def labels = [] as Set
+
+    if (config.build || config.run) {
+      labels.add("blubber")
+    }
+
+    if (config.publish) {
+      for (def publish in config.publish) {
+        if (publish.type == "files") {
+          labels.add("blubber")
+        } else if (publish.type == "image") {
+          labels.add("dockerPublish")
+        }
+      }
+    }
+
+    labels
+  }
+
+  /**
+   * Performs setup steps, checkout out the repo and binding useful values to
+   * be used by all other stages (default image labels, project identifier,
+   * timestamp, etc).
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${setup.project}</code></dt>
+   * <dd>ZUUL_PROJECT parameter value if getting a patchset from Zuul.</dd>
+   * <dd>Jenkins JOB_NAME value otherwise.</dd>
+   *
+   * <dt><code>${setup.timestamp}</code></dt>
+   * <dd>Timestamp at the start of pipeline execution. Used in image tags, etc.</dd>
+   *
+   * <dt><code>${setup.imageLabels}</code></dt>
+   * <dd>Default set of image labels:
+   *    <code>jenkins.job</code>,
+   *    <code>jenkins.build</code>,
+   *    <code>ci.project</code>,
+   *    <code>ci.pipeline</code>
+   * </dd>
+   * </dl>
+   */
+  void setup(ws, runner) {
+    def imageLabels = [
+      "jenkins.job": ws.env.JOB_NAME,
+      "jenkins.build": ws.env.BUILD_ID,
+    ]
+
+    if (ws.params.ZUUL_REF) {
+      def patchset = PatchSet.fromZuul(ws.params)
+      ws.checkout(patchset.getSCM())
+      context["project"] = patchset.project.replaceAll('/', '-')
+      imageLabels["zuul.commit"] = patchset.commit
+    } else {
+      ws.checkout(ws.scm)
+      context["project"] = ws.env.JOB_NAME
+    }
+
+    imageLabels["ci.project"] = context['project']
+    imageLabels["ci.pipeline"] = pipeline.name
+
+    context["timestamp"] = timestampLabel()
+    context["imageLabels"] = imageLabels
+  }
+
+  /**
+   * Performs teardown steps, removing images and helm releases, and reporting
+   * back to Gerrit.
+   */
+  void teardown(ws, runner) {
+    try {
+      runner.removeImages(context.getAll("imageID"))
+    } catch (all) {}
+
+    try {
+      runner.purgeReleases(context.getAll("releaseName"))
+    } catch (all) {}
+
+    for (def imageName in context.getAll("publishedImage")) {
+      runner.reportToGerrit(image)
+    }
+  }
+
+  /**
+   * Builds the configured Blubber variant.
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>build</code></dt>
+   * <dd>Blubber variant name</dd>
+   * </dl>
+   *
+   * <h3>Example</h3>
+   * <pre><code>
+   *   stages:
+   *     - name: candidate
+   *       build: production
+   * </code></pre>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[stage].imageID}</code></dt>
+   * <dd>Image ID of built image.</dd>
+   * </dl>
+   */
+  void build(ws, runner) {
+    def imageID = runner.build(context % config.build, context["setup.imageLabels"])
+
+    context["imageID"] = imageID
+  }
+
+  /**
+   * Runs the entry point of a built image variant.
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>run</code></dt>
+   * <dd>Image to run and entry-point arguments</dd>
+   * <dd>Specifying <code>run: true</code> expands to
+   *   <code>run: { image: '${.imageID}' }</code>
+   *   (i.e. the image built in this stage)</dd>
+   * <dd>
+   *   <dl>
+   *     <dt><code>image</code></dt>
+   *     <dd>An image to run</dd>
+   *     <dd>Default: <code>{$.imageID}</code></dd>
+   *
+   *     <dt><code>arguments</code></dt>
+   *     <dd>Entry-point arguments</dd>
+   *     <dd>Default: <code>[]</code></dd>
+   *   </dl>
+   * </dd>
+   * </dl>
+   *
+   * <h3>Example</h3>
+   * <pre><code>
+   *   stages:
+   *     - name: test
+   *       build: test
+   *       run: true
+   * </code></pre>
+   *
+   * <h3>Example</h3>
+   * <pre><code>
+   *   stages:
+   *     - name: built
+   *     - name: lint
+   *       run:
+   *         image: '${built.imageID}'
+   *         arguments: [lint]
+   *     - name: test
+   *       run:
+   *         image: '${built.imageID}'
+   *         arguments: [test]
+   * </code></pre>
+   */
+  void run(ws, runner) {
+    runner.run(
+      context % config.run.image,
+      config.run.arguments.collect { context % it },
+    )
+  }
+
+  /**
+   * Publish artifacts, either files or a built image variant (pushed to the
+   * WMF Docker registry).
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>publish</code></dt>
+   * <dd>
+   *   <dl>
+   *     <dt><code>image</code></dt>
+   *     <dd>Publish an to the WMF Docker registry</dd>
+   *     <dd>
+   *       <dl>
+   *         <dt>id</dt>
+   *         <dd>ID of a previously built image variant</dd>
+   *         <dd>Default: <code>${.imageID}</code> (image built in this stage)</dd>
+   *
+   *         <dt>name</dt>
+   *         <dd>Published name of the image. Note that this base name will be
+   *         prefixed with the globally configured registry/repository name
+   *         before being pushed.</dd>
+   *         <dd>Default: <code>${setup.project}</code> (project identifier;
+   *         see {@link setup()})</dd>
+   *
+   *         <dt>tag</dt>
+   *         <dd>Primary tag under which the image is published</dd>
+   *         <dd>Default: <code>${setup.timestamp}-${.stage}</code></dd>
+   *
+   *         <dt>tags</dt>
+   *         <dd>Additional tags under which to publish the image</dd>
+   *       </dl>
+   *     </dd>
+   *   </dl>
+   * </dd>
+   * <dd>
+   *   <dl>
+   *     <dt><code>files</code></dt>
+   *     <dd>Extract and save files from a previously built image variant</dd>
+   *     <dd>
+   *       <dl>
+   *         <dt>paths</dt>
+   *         <dd>Globbed file paths resolving any number of files under the
+   *         image's root filesystem</dd>
+   *       </dl>
+   *     </dd>
+   *   </dl>
+   * </dd>
+   * </dl>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[stage].imageName}</code></dt>
+   * <dd>Short name under which the image was published</dd>
+   *
+   * <dt><code>${[stage].imageFullName}</code></dt>
+   * <dd>Fully qualified name (registry/repository/imageName) under which the
+   * image was published</dd>
+   *
+   * <dt><code>${[stage].imageTag}</code></dt>
+   * <dd>Primary tag under which the image was published</dd>
+   *
+   * <dt><code>${[stage].publishedImage}</code></dt>
+   * <dd>Full qualified name and tag (<code>${.imageFullName}:${.imageTag}</code>)</dd>
+   * </dl>
+   */
+  void publish(ws, runner) {
+    if (config.publish.image) {
+      def imageName = context % publisher.name
+
+      for (def tag in ([publisher.tag] + publisher.tags)) {
+        runner.registerAs(
+          context % publisher.image,
+          imageName,
+          context % tag,
+        )
+      }
+
+      context["imageName"] = imageName
+      context["imageFullName"] = runner.qualifyRegistryPath(imageName)
+      context["imageTag"] = context % publisher.tag
+      context["publishedImage"] = context % '${.imageFullName}:${.imageTag}'
+    }
+
+    if (config.publish.files) {
+      // TODO
+    }
+  }
+
+  /**
+   * Deploy a published image to a WMF k8s cluster. (Currently only the "ci"
+   * cluster is supported for testing.)
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>deploy</code></dt>
+   * <dd>
+   *   <dl>
+   *     <dt>image</dt>
+   *     <dd>Reference to a previously published image</dd>
+   *     <dd>Default: <code>${.publishedImage}</code> (image published in the
+   *     {@link publish() publish step} of this stage)</dd>
+   *
+   *     <dt>cluster</dt>
+   *     <dd>Cluster to target</dd>
+   *     <dd>Default: <code>"ci"</code></dd>
+   *     <dd>Currently only "ci" is supported and this configuration is
+   *     effectively ignored</dd>
+   *
+   *     <dt>chart</dt>
+   *     <dd>URL of Helm chart to use for deployment</dd>
+   *     <dd>Required</dd>
+   *
+   *     <dt>test</dt>
+   *     <dd>Whether to run <code>helm test</code> against this deployment</dd>
+   *     <dd>Default: <code>true</code></dd>
+   *   </dl>
+   * </dd>
+   * </dl>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[stage].releaseName}</code></dt>
+   * <dd>Release name of new deployment</dd>
+   * </dl>
+   */
+  void deploy(ws, runner) {
+    def release = runner.deployWithChart(
+      context % config.deploy.chart,
+      context % config.deploy.image,
+      context % config.deploy.tag,
+    )
+
+    context["releaseName"] = release
+
+    if (config.deploy.test) {
+      runner.testRelease(release)
+    }
+  }
+
+  /**
+   * Binds a number of new values for reference in subsequent stages.
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>exports</code></dt>
+   * <dd>Name/value pairs for additional exports.</dd>
+   * </dl>
+   *
+   * <h3>Example</h3>
+   * <pre><code>
+   *   stages:
+   *     - name: candidate
+   *       build: production
+   *       exports:
+   *         image: '${.imageID}'
+   *         tag: '${.imageTag}-my-tag'
+   *     - name: published
+   *       publish:
+   *         image:
+   *           id: '${candidate.image}'
+   *           tags: ['${candidate.tag}']
+   * </code></pre>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[name].[value]}</code></dt>
+   * <dd>Each configured name/value pair.</dd>
+   * </dl>
+   */
+  void exports(ws, runner) {
+    for (def name in exports) {
+      context[name] = context % exports[name]
+    }
+  }
+}

@@ -4,6 +4,9 @@ import java.io.FileNotFoundException
 
 import static org.wikimedia.integration.Utility.*
 
+import org.wikimedia.integration.GerritPipelineComment
+import org.wikimedia.integration.GerritReview
+
 /**
  * Provides an interface to common pipeline build/run/deploy functions.
  *
@@ -101,7 +104,7 @@ class PipelineRunner implements Serializable {
     }
 
     def blubber = new Blubber(workflowScript, cfg, blubberoidURL)
-    def dockerfile = getConfigFile("Dockerfile")
+    def dockerfile = getTempFile("Dockerfile.")
 
     workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
 
@@ -127,6 +130,19 @@ class PipelineRunner implements Serializable {
 
     assert cfg instanceof Map && cfg.chart : "you must define 'chart: <helm chart url>' in ${cfg}"
 
+    deployWithChart(cfg.chart, imageName, imageTag, overrides)
+  }
+
+  /**
+   * Deploys the given registered image using the given Helm chart and returns
+   * the name of the release.
+   *
+   * @param chart Chart URL.
+   * @param imageName Name of the registered image to deploy.
+   * @param imageTag  Tag of the registered image to use.
+   * @param overrides Additional Helm value overrides to set.
+   */
+  String deployWithChart(String chart, String imageName, String imageTag, Map overrides = [:]) {
     def values = [
       "docker.registry": registry,
       "docker.pull_policy": pullPolicy,
@@ -139,7 +155,7 @@ class PipelineRunner implements Serializable {
     def release = imageName + "-" + randomAlphanum(8)
 
     helm("install --namespace=${arg(namespace)} --set ${values} -n ${arg(release)} " +
-         "--debug --wait --timeout ${timeout} ${arg(cfg.chart)}")
+         "--debug --wait --timeout ${timeout} ${arg(chart)}")
 
     release
   }
@@ -154,12 +170,32 @@ class PipelineRunner implements Serializable {
   }
 
   /**
+   * Returns a path under configPath to a temp file with the given base name.
+   *
+   * @param baseName File base name.
+   */
+  String getTempFile(String baseName) {
+    getConfigFile("${baseName}${randomAlphanum(8)}")
+  }
+
+  /**
    * Deletes and purges the given Helm release.
    *
    * @param release Previously deployed release name.
    */
   void purgeRelease(String release) {
-    helm("delete --purge ${arg(release)}")
+    purgeReleases([release])
+  }
+
+  /**
+   * Deletes and purges the given Helm release.
+   *
+   * @param release Previously deployed release name.
+   */
+  void purgeReleases(List releases) {
+    if (releases.size() > 0) {
+      helm("delete --purge ${args(releases)}")
+    }
   }
 
   /**
@@ -194,17 +230,58 @@ class PipelineRunner implements Serializable {
    * @param imageID ID of the image to remove.
    */
   void removeImage(String imageID) {
-    workflowScript.sh("docker rmi --force ${arg(imageID)}")
+    removeImages([imageID])
+  }
+
+  /**
+   * Removes the given images from the local cache.
+   *
+   * @param imageIDs IDs of images to remove.
+   */
+  void removeImages(List imageIDs) {
+    if (imageIDs.size() > 0) {
+      workflowScript.sh("docker rmi --force ${args(imageIDs)}")
+    }
+  }
+
+  /**
+   * Submits a comment to Gerrit with the build result and links to published
+   * images.
+   *
+   * @param imageName Fully qualified name of published image.
+   * @param imageTags Image tags.
+   */
+  void reportToGerrit(imageName, imageTags = []) {
+    def comment
+
+    if (workflowScript.currentBuild.result == 'SUCCESS' && imageName) {
+      comment = new GerritPipelineComment(
+        jobName: workflowScript.env.JOB_NAME,
+        buildNumber: workflowScript.env.BUILD_NUMBER,
+        jobStatus: workflowScript.currentBuild.result,
+        image: imageName,
+        tags: imageTags,
+      )
+    } else {
+      comment = new GerritPipelineComment(
+        jobName: workflowScript.env.JOB_NAME,
+        buildNumber: workflowScript.env.BUILD_NUMBER,
+        jobStatus: workflowScript.currentBuild.result,
+      )
+    }
+
+    GerritReview.post(workflowScript, comment)
   }
 
   /**
    * Runs a container using the image specified by the given ID.
    *
    * @param imageID Image ID.
+   * @param arguments Entry-point arguments.
    */
-  void run(String imageID) {
+  void run(String imageID, List arguments = []) {
     workflowScript.timeout(time: 20, unit: "MINUTES") {
-      workflowScript.sh("exec docker run --rm ${arg(imageID)}")
+      workflowScript.sh("exec docker run --rm ${args([imageID] + arguments)}")
     }
   }
 
