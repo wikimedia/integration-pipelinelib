@@ -1,0 +1,18 @@
+pipelines:
+  service1:
+    directory: src/service1
+    stages:
+      - name: unit
+        build: test
+        run: true
+      - name: lint
+      - name: candidate
+        build: production
+        run: false
+    execution:
+      - [unit, candidate]
+      - [lint, candidate]
+  service2:
+    directory: src/service2
+    stages:
+      - name: test

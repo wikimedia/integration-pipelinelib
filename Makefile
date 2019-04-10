@@ -2,7 +2,14 @@ SHELL := /bin/bash
 GRADLE := $(shell command -v gradle)
 BLUBBER := $(shell command -v blubber)
 DOCKER := $(shell command -v docker)
-DOCKER_TAG := piplinelib-tests-$(shell date -I)
+
+DOCKER_TAG := piplinelib-tests-$(shell date -u +%Y%m%d-%H%M%S)
+DOCKER_LABEL := wmf.gc=pipelinelib-tests
+DOCKER_BUILD := docker build --label $(DOCKER_LABEL) --tag $(DOCKER_TAG)
+DOCKER_RUN := docker run --rm --label $(DOCKER_LABEL) --name $(DOCKER_TAG)
+DOCKER_STOP := docker stop "$(DOCKER_TAG)"
+DOCKER_STOP_ALL = docker stop $(shell docker ps -qf label=$(DOCKER_LABEL))
+DOCKER_RMI = docker rmi $(shell docker images -qf label=$(DOCKER_LABEL))
 
 
 .PHONY: test
@@ -26,9 +33,58 @@ ifneq (,$(GRADLE))
 else ifneq (,$(and $(BLUBBER), $(DOCKER)))
 	blubber .pipeline/blubber.yaml test | docker build -t "$(DOCKER_TAG)" -f - .
 	docker run --rm -it "$(DOCKER_TAG)"
-	docker rmi "$(DOCKER_TAG)"
 	@exit 0
 else
 	@echo "Can't find Gradle or Blubber/Docker. Install one to run tests."
+	@exit 1
+endif
+
+systemtest:
+ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
+	$(eval JENKINS_HOST := $(patsubst tcp://%,%,$(DOCKER_HOST)))
+	$(eval JENKINS_HOST := $(word 1, $(subst :, ,$(JENKINS_HOST))))
+	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
+	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
+	$(eval BUILD_OUTPUT := $(shell mktemp))
+
+	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
+	$(DOCKER_RUN) -d \
+	  -p 8080:8080 \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  $(DOCKER_TAG)
+
+	@while ! curl -s http://$(JENKINS_HOST):8080/ > /dev/null; do \
+	  echo "waiting for jenkins..."; \
+	  sleep 1; \
+	done
+	@while curl -s http://$(JENKINS_HOST):8080/ | grep -q "is getting ready to work"; do \
+	  echo "waiting for jenkins..."; \
+	  sleep 1; \
+	done
+
+	curl -X POST $(JENKINS_URL)/job/repo1/build
+
+	@echo "Build $(JENKINS_URL)/job/repo1/1 created"
+	@while curl -sw %%{http_code} $(JENKINS_URL)/job/repo1/1/api/json | grep -q '404'; do \
+	  echo "waiting for build to start..."; \
+	  sleep 1; \
+	done
+
+	@while curl -s $(JENKINS_URL)/job/repo1/1/api/json | grep -q '"building":true'; do \
+	  sleep 1; \
+	  curl -s $(JENKINS_URL)/job/repo1/1/consoleText | \
+	    tail -n +$$(wc -l $(BUILD_OUTPUT) | awk '{ print $$1 }') | \
+	    tee -a $(BUILD_OUTPUT); \
+	done
+
+ifeq (1,$(DEBUG))
+	@echo "DEBUG: Build $(JENKINS_URL)/job/repo1/1 completed"
+	@echo -n "DEBUG: Press <enter> to continue: "
+	@read
+endif
+
+	$(DOCKER_STOP)
+else
+	@echo "Can't find Docker and your DOCKER_HOST. Set up both to run system tests."
 	@exit 1
 endif

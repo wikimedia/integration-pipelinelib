@@ -1,0 +1,7 @@
+version: v3
+base: docker-registry.wikimedia.org/wikimedia-jessie
+apt: { packages: [make] }
+
+variants:
+  test:
+    entrypoint: [make, test]
