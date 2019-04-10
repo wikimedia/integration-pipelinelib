@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 apply plugin: 'groovy'
 
 repositories {
@@ -6,6 +9,7 @@ repositories {
 
 dependencies {
   compile 'org.codehaus.groovy:groovy-all:2.4.11'
+  compile 'com.cloudbees:groovy-cps:1.24'
   testCompile 'junit:junit:4.12'
 }
 
@@ -29,7 +33,27 @@ groovydoc {
 
 test {
   testLogging {
-    exceptionFormat = 'full'
+    exceptionFormat TestExceptionFormat.FULL
+
+    events TestLogEvent.PASSED,
+           TestLogEvent.SKIPPED,
+           TestLogEvent.FAILED
+
+    info {
+      events TestLogEvent.STARTED,
+             TestLogEvent.PASSED,
+             TestLogEvent.SKIPPED,
+             TestLogEvent.FAILED,
+             TestLogEvent.STANDARD_OUT,
+             TestLogEvent.STANDARD_ERROR
+    }
+
+    debug.events = info.events
+  }
+
+  // Can be used for remote debugging in IntelliJ
+  if (System.getProperty('DEBUG', '0') == '1') {
+    jvmArgs '-Xdebug', '-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=9099'
   }
 }
 
