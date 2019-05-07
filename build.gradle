@@ -23,6 +23,10 @@ sourceSets {
   }
 }
 
+groovydoc {
+  use = true
+}
+
 test {
   testLogging {
     exceptionFormat = 'full'

@@ -6,13 +6,18 @@ DOCKER_TAG := piplinelib-tests-$(shell date -I)
 
 
 .PHONY: test
+
+doc: docs
+docs:
+	gradle groovydoc
+
 test:
 ifneq (,$(GRADLE))
 	gradle test
 	@exit 0
 else ifneq (,$(and $(BLUBBER), $(DOCKER)))
 	blubber .pipeline/blubber.yaml test | docker build -t "$(DOCKER_TAG)" -f - .
-    docker run --rm -it "$(DOCKER_TAG)"
+	docker run --rm -it "$(DOCKER_TAG)"
 	docker rmi "$(DOCKER_TAG)"
 	@exit 0
 else
