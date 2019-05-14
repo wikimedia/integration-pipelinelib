@@ -78,6 +78,38 @@ class PipelineTest extends GroovyTestCase {
     assert e.errors[0] == "setup is a reserved stage name"
   }
 
+  void testStack() {
+    def pipeline = new Pipeline("foo", [
+      stages: [[name: "stageA"], [name: "stageB"], [name: "stageC"]],
+      execution: [["stageA", "stageC"], ["stageB", "stageC"]],
+    ])
+
+    // Expecting:
+    //
+    //         stageA
+    //       ⇗        ⇘
+    // setup            stageC  ⇒  teardown
+    //       ⇘        ⇗
+    //         stageB
+    //
+    def stack = pipeline.stack()
+
+    assert stack.size() == 4
+
+    assert stack[0].size() == 1
+    assert stack[0][0].name == "setup"
+
+    assert stack[1].size() == 2
+    assert stack[1][0].name == "stageA"
+    assert stack[1][1].name == "stageB"
+
+    assert stack[2].size() == 1
+    assert stack[2][0].name == "stageC"
+
+    assert stack[3].size() == 1
+    assert stack[3][0].name == "teardown"
+  }
+
   void testValidate_teardownReserved() {
     def pipeline = new Pipeline("foo", [
       stages: [[name: "teardown"]],

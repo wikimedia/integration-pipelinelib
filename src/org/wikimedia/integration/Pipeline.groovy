@@ -150,11 +150,11 @@ class Pipeline implements Serializable {
   }
 
   private ExecutionGraph setup() {
-    new ExecutionGraph([[SETUP_STAGE]])
+    new ExecutionGraph([[PipelineStage.SETUP]])
   }
 
   private ExecutionGraph teardown() {
-    new ExecutionGraph([[TEARDOWN_STAGE]])
+    new ExecutionGraph([[PipelineStage.TEARDOWN]])
   }
 
   private PipelineStage createStage(stageName, context) {
