@@ -23,8 +23,9 @@ class PipelineBuilder implements Serializable {
    * stages defined as <code>parallel</code> stages in the workflow script.
    *
    * @param ws Jenkins Workflow Script (`this` when writing a Jenkinsfile)
+   * @param pipelineName Only build/run the given pipeline.
    */
-  void build(ws) {
+  void build(ws, pipelineName = "") {
     def config
 
     ws.node {
@@ -34,7 +35,19 @@ class PipelineBuilder implements Serializable {
       }
     }
 
-    for (def pline in pipelines(config)) {
+    def plines = pipelines(config)
+
+    if (pipelineName) {
+      plines = plines.findAll { it.name == pipelineName }
+
+      if (plines.size() == 0) {
+        throw new RuntimeException(
+          "Pipeline '${pipelineName}' is not defined in project's '${configPath}'",
+        )
+      }
+    }
+
+    for (def pline in plines) {
       def stack = pline.stack()
 
       ws.node(pline.getRequiredNodeLabels().join(" && ")) {
