@@ -53,7 +53,11 @@ class PipelineTest extends GroovyTestCase {
       stages: [],
     ])
 
-    assert pipeline.runner().configPath == "../../.pipeline"
+    def runner = pipeline.runner()
+
+    assert runner.configPath == "../../.pipeline"
+    assert runner.registry == "docker-registry.wikimedia.org"
+    assert runner.registryInternal == "docker-registry.discovery.wmnet"
   }
 
   void testRunner_currentDirectory() {
@@ -63,6 +67,17 @@ class PipelineTest extends GroovyTestCase {
     ])
 
     assert pipeline.runner().configPath == ".pipeline"
+  }
+
+  void testRunner_customRegistries() {
+    def pipeline = new Pipeline("foo", [stages: []])
+    pipeline.dockerRegistry = "registry.example"
+    pipeline.dockerRegistryInternal = "internal.example"
+
+    def runner = pipeline.runner()
+
+    assert runner.registry == "registry.example"
+    assert runner.registryInternal == "internal.example"
   }
 
   void testValidate_setupReserved() {

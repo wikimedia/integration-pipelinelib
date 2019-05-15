@@ -60,6 +60,7 @@ class Pipeline implements Serializable {
   String blubberfile
   String directory
   String dockerRegistry
+  String dockerRegistryInternal
 
   private Map stagesConfig
   private List<List> execution
@@ -71,7 +72,6 @@ class Pipeline implements Serializable {
     name = pipelineName
     blubberfile = config.blubberfile ?: "${name}/blubber.yaml"
     directory = config.directory ?: "."
-    dockerRegistry = config.dockerRegistry
 
     stagesConfig = config.stages.collectEntries{
       [(it.name): PipelineStage.defaultConfig(it)]
@@ -115,11 +115,20 @@ class Pipeline implements Serializable {
    * script object.
    */
   PipelineRunner runner(ws) {
-    def runner = new PipelineRunner(ws,
+    def settings = [
       blubberConfig: blubberfile,
       kubeConfig: "/etc/kubernetes/ci-staging.config",
-      registry: dockerRegistry,
-    )
+    ]
+
+    if (dockerRegistry) {
+      settings["registry"] = dockerRegistry
+    }
+
+    if (dockerRegistryInternal) {
+      settings["registryInternal"] = dockerRegistryInternal
+    }
+
+    def runner = new PipelineRunner(settings, ws)
 
     // make the PipelineRunner configPath relative to the pipeline's directory
     def prefix = "../" * directory.split('/').count { !(it in ["", "."]) }

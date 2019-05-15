@@ -59,9 +59,14 @@ class PipelineRunner implements Serializable {
   def pullPolicy = "IfNotPresent"
 
   /**
-   * Default Docker registry host used for tagging and registering images.
+   * Default Docker registry host used when qualifying public image URLs.
    */
   def registry = "docker-registry.wikimedia.org"
+
+  /**
+   * Alternative Docker registry host used only when registering images.
+   */
+  def registryInternal = "docker-registry.discovery.wmnet"
 
   /**
    * Default Docker registry repository used for tagging and registering images.
@@ -215,7 +220,7 @@ class PipelineRunner implements Serializable {
    * @param tag Remote tag to use for the image.
    */
   String registerAs(String imageID, String name, String tag) {
-    def nameAndTag = qualifyRegistryPath(name) + ":" + tag
+    def nameAndTag = qualifyRegistryPath(name, registryInternal) + ":" + tag
 
     workflowScript.sh("docker tag ${arg(imageID)} ${arg(nameAndTag)} && " +
                       "sudo /usr/local/bin/docker-pusher ${arg(nameAndTag)}")
@@ -286,14 +291,15 @@ class PipelineRunner implements Serializable {
   }
 
   /**
-   * Fully qualifies an image name to a registry path.
+   * Fully qualifies an image name to a public registry path.
    *
    * @param name Image name.
+   * @param registryName Alternative registry. Defaults to {@link registry}.
    */
-  String qualifyRegistryPath(String name) {
+  String qualifyRegistryPath(String name, String registryName = "") {
     assert !name.contains("/") : "image name ${name} cannot contain slashes"
 
-    [registry, repository, name].join("/")
+    [registryName ?: registry, repository, name].join("/")
   }
 
   /**
