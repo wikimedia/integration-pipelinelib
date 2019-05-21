@@ -28,7 +28,7 @@ class PipelineBuilder implements Serializable {
   void build(ws, pipelineName = "") {
     def config
 
-    ws.node {
+    ws.node("blubber") {
       ws.stage("configure") {
         ws.checkout(ws.scm)
         config = ws.readYaml(file: configPath)
