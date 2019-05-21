@@ -1,6 +1,7 @@
 package org.wikimedia.integration
 
 import org.wikimedia.integration.ExecutionGraph
+import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
 
 class PipelineBuilder implements Serializable {
@@ -30,7 +31,12 @@ class PipelineBuilder implements Serializable {
 
     ws.node("blubber") {
       ws.stage("configure") {
-        ws.checkout(ws.scm)
+        if (ws.params.ZUUL_REF) {
+          ws.checkout(PatchSet.fromZuul(ws.params).getSCM())
+        } else {
+          ws.checkout(ws.scm)
+        }
+
         config = ws.readYaml(file: configPath)
       }
     }
