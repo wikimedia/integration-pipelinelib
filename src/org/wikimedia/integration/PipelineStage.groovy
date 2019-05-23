@@ -192,12 +192,12 @@ class PipelineStage implements Serializable {
     }
 
     if (config.publish) {
-      for (def publish in config.publish) {
-        if (publish.type == "files") {
-          labels.add("blubber")
-        } else if (publish.type == "image") {
-          labels.add("dockerPublish")
-        }
+      if (config.publish.files) {
+        labels.add("blubber")
+      }
+
+      if (config.publish.image) {
+        labels.add("dockerPublish")
       }
     }
 

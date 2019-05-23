@@ -47,6 +47,68 @@ class PipelineTest extends GroovyTestCase {
     ]
   }
 
+  void testGetDefaultNodeLabels_build() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          build: "foo",
+        ],
+      ],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+  }
+
+  void testGetDefaultNodeLabels_run() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          run: [
+            image: "foo",
+          ],
+        ],
+      ],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+  }
+
+  void testGetDefaultNodeLabels_publishFiles() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          publish: [
+            files: [
+              paths: ["foo/*"],
+            ],
+          ],
+        ],
+      ],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+  }
+
+  void testGetDefaultNodeLabels_publishImage() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          publish: [
+            image: [
+              id: "foo",
+            ],
+          ],
+        ],
+      ],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["dockerPublish"] as Set
+  }
+
   void testRunner() {
     def pipeline = new Pipeline("foo", [
       directory: "src/foo/",
