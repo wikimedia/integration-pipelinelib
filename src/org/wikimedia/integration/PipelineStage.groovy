@@ -519,8 +519,8 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void exports(ws, runner) {
-    for (def name in exports) {
-      context[name] = context % exports[name]
+    for (def name in config.exports) {
+      context[name] = context % config.exports[name]
     }
   }
 }
