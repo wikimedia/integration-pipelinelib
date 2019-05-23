@@ -420,7 +420,7 @@ class PipelineStage implements Serializable {
 
       for (def tag in ([publishImage.tag] + publishImage.tags)) {
         runner.registerAs(
-          context % publishImage.image,
+          context % publishImage.id,
           imageName,
           context % tag,
         )
