@@ -2,12 +2,16 @@ import groovy.mock.interceptor.MockFor
 import static groovy.test.GroovyAssert.*
 import groovy.util.GroovyTestCase
 
+import org.wikimedia.integration.Pipeline
+import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.PipelineStage
 import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.ExecutionContext
 
 class PipelineStageTest extends GroovyTestCase {
-  void testPipelineStage_defaultConfig() {
+  private class WorkflowScript {} // Mock for Jenkins Pipeline workflow context
+
+  void testDefaultConfig() {
     // shorthand with just name is: build and run a variant
     def shortHand = [name: "foo"]
     assert PipelineStage.defaultConfig(shortHand) == [
@@ -40,5 +44,33 @@ class PipelineStageTest extends GroovyTestCase {
 
     // publish.image.tag defaults to {timestamp}-{stage name}
     assert defaultPublishImage.publish.image.tag == '${setup.timestamp}-${.stage}'
+  }
+
+  void testExports() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "bar",
+          exports: [
+            image: "fooimage",
+          ],
+        ]
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def mockWS = new MockFor(WorkflowScript)
+
+    def stage = pipeline.stack()[1][0]
+
+    assert stage.name == "bar"
+
+    mockWS.use {
+      mockRunner.use {
+        stage.exports(mockWS, mockRunner)
+      }
+    }
+
+    assert stage.context["image"] == "fooimage"
   }
 }
