@@ -415,11 +415,11 @@ class PipelineStage implements Serializable {
    */
   void publish(ws, runner) {
     if (config.publish.image) {
-      def imageName = context % publisher.name
+      def imageName = context % config.publish.name
 
-      for (def tag in ([publisher.tag] + publisher.tags)) {
+      for (def tag in ([config.publish.tag] + config.publish.tags)) {
         runner.registerAs(
-          context % publisher.image,
+          context % config.publish.image,
           imageName,
           context % tag,
         )
@@ -427,7 +427,7 @@ class PipelineStage implements Serializable {
 
       context["imageName"] = imageName
       context["imageFullName"] = runner.qualifyRegistryPath(imageName)
-      context["imageTag"] = context % publisher.tag
+      context["imageTag"] = context % config.publish.tag
       context["publishedImage"] = context % '${.imageFullName}:${.imageTag}'
     }
 
