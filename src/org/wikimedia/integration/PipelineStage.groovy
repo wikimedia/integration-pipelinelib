@@ -263,7 +263,7 @@ class PipelineStage implements Serializable {
       runner.purgeReleases(context.getAll("releaseName"))
     } catch (all) {}
 
-    for (def imageName in context.getAll("publishedImage")) {
+    for (def image in context.getAll("publishedImage")) {
       runner.reportToGerrit(image)
     }
   }
