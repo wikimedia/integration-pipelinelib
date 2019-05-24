@@ -256,15 +256,18 @@ class PipelineStage implements Serializable {
    */
   void teardown(ws, runner) {
     try {
-      runner.removeImages(context.getAll("imageID"))
+      runner.removeImages(context.getAll("imageID").values())
     } catch (all) {}
 
     try {
-      runner.purgeReleases(context.getAll("releaseName"))
+      runner.purgeReleases(context.getAll("releaseName").values())
     } catch (all) {}
 
-    for (def image in context.getAll("publishedImage")) {
-      runner.reportToGerrit(image)
+    def imageTags = context.getAll("imageTags")
+    context.getAll("publishedImage").collect { stageName, image ->
+      try {
+        runner.reportToGerrit(image, imageTags[stageName] ?: [])
+      } catch (all) {}
     }
   }
 
@@ -416,19 +419,23 @@ class PipelineStage implements Serializable {
   void publish(ws, runner) {
     if (config.publish.image) {
       def publishImage = config.publish.image
-      def imageName = context % publishImage.name
 
-      for (def tag in ([publishImage.tag] + publishImage.tags)) {
+      def imageID = context % publishImage.id
+      def imageName = context % publishImage.name
+      def imageTags = ([publishImage.tag] + publishImage.tags).collect { context % it }
+
+      for (def tag in imageTags) {
         runner.registerAs(
-          context % publishImage.id,
+          imageID,
           imageName,
-          context % tag,
+          tag,
         )
       }
 
       context["imageName"] = imageName
       context["imageFullName"] = runner.qualifyRegistryPath(imageName)
       context["imageTag"] = context % publishImage.tag
+      context["imageTags"] = imageTags
       context["publishedImage"] = context % '${.imageFullName}:${.imageTag}'
     }
 

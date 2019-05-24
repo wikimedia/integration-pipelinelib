@@ -155,11 +155,13 @@ class ExecutionContext implements Serializable {
     }
 
     /**
-     * Returns all objects bound to the given name under any node namespace.
+     * Returns all objects bound to the given name under any node namespace,
+     * as well as the node under which it is found.
+     *
      * This should only be used at the end of an execution graph.
      */
-    List getAll(String key) {
-      globals.findAll { it.value[key] != null }.collect { it.value[key] }
+    Map getAll(String key) {
+      globals.findAll { it.value[key] != null }.collectEntries { [it.key, it.value[key]] }
     }
 
     /**
