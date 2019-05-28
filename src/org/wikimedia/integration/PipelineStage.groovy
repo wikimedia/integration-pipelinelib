@@ -135,7 +135,7 @@ class PipelineStage implements Serializable {
 
       dcfg.deploy.image = dcfg.deploy.image ?: '${.publishedImage}'
       dcfg.deploy.cluster = dcfg.deploy.cluster ?: "ci"
-      dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.test
+      dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.deploy.test
     }
 
     dcfg

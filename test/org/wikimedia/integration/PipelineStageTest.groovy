@@ -11,10 +11,11 @@ import org.wikimedia.integration.ExecutionContext
 class PipelineStageTest extends GroovyTestCase {
   private class WorkflowScript {} // Mock for Jenkins Pipeline workflow context
 
-  void testDefaultConfig() {
+  void testDefaultConfig_shortHand() {
     // shorthand with just name is: build and run a variant
-    def shortHand = [name: "foo"]
-    assert PipelineStage.defaultConfig(shortHand) == [
+    def cfg = [name: "foo"]
+
+    assert PipelineStage.defaultConfig(cfg) == [
       name: "foo",
       build: '${.stage}',
       run: [
@@ -22,28 +23,92 @@ class PipelineStageTest extends GroovyTestCase {
         arguments: [],
       ],
     ]
+  }
 
-    // run: true means run the built image
-    def runTrue = [name: "foo", build: "foo", run: true]
-    assert PipelineStage.defaultConfig(runTrue) == [
+  void testDefaultConfig_run() {
+    def cfg = [
       name: "foo",
       build: "foo",
+      run: true,
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      name: "foo",
+      build: "foo",
+
+      // run: true means run the built image
       run: [
         image: '${.imageID}',
         arguments: [],
       ],
     ]
+  }
 
-    def defaultPublishImage = PipelineStage.defaultConfig([publish: [image: true]])
+  void testDefaultConfig_publish() {
+    def cfg = [
+      publish: [
+        image: true,
+      ],
+    ]
 
-    // publish.image.id defaults to the previously built image
-    assert defaultPublishImage.publish.image.id == '${.imageID}'
+    assert PipelineStage.defaultConfig(cfg) == [
+      publish: [
+        image: [
+          // defaults to the previously built image
+          id: '${.imageID}',
 
-    // publish.image.name defaults to the project name
-    assert defaultPublishImage.publish.image.name == '${setup.project}'
+          // defaults to the project name
+          name: '${setup.project}',
 
-    // publish.image.tag defaults to {timestamp}-{stage name}
-    assert defaultPublishImage.publish.image.tag == '${setup.timestamp}-${.stage}'
+          // defaults to the pipeline start timestamp and this stage name
+          tag: '${setup.timestamp}-${.stage}',
+
+          // defaults to []
+          tags: [],
+        ],
+      ],
+    ]
+  }
+
+  void testDefaultConfig_deploy() {
+    def cfg = [
+      deploy: [
+        chart: "chart.tar.gz",
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      deploy: [
+        chart: "chart.tar.gz",
+
+        // defaults to the previously published image
+        image: '${.publishedImage}',
+
+        // defaults to "ci"
+        cluster: "ci",
+
+        // defaults to true
+        test: true,
+      ],
+    ]
+
+    cfg = [
+      deploy: [
+        chart: "chart.tar.gz",
+        image: "fooimage",
+        cluster: "foocluster",
+        test: true,
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      deploy: [
+        chart: "chart.tar.gz",
+        image: "fooimage",
+        cluster: "foocluster",
+        test: true,
+      ],
+    ]
   }
 
   void testExports() {
