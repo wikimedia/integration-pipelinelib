@@ -18,7 +18,7 @@ class PipelineStage implements Serializable {
   String name
   Map config
 
-  private ExecutionContext.NodeContext context
+  private def context
 
   /**
    * Returns an config based on the given one but with default values
