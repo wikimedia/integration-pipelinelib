@@ -3,6 +3,7 @@ package org.wikimedia.integration
 import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
+import org.wikimedia.integration.PipelineStage
 
 class PipelineBuilder implements Serializable {
   String configPath
@@ -70,6 +71,14 @@ class PipelineBuilder implements Serializable {
               }
             } else {
               def stage = stages[0]
+
+              // if we've reached the teardown stage in our normal execution
+              // path (not after an exception was thrown), the result should
+              // be a success
+              if (stage.name == PipelineStage.TEARDOWN) {
+                ws.currentBuild.result = 'SUCCESS'
+              }
+
               ws.stage("${pline.name}: ${stage.name}", stage.closure(ws))
             }
           }
@@ -78,7 +87,7 @@ class PipelineBuilder implements Serializable {
 
           // ensure teardown steps are always executed
           for (def stage in stack.last()) {
-            if (stage == "_teardown") {
+            if (stage == PipelineStage.TEARDOWN) {
               stage.closure(ws)()
             }
           }
