@@ -111,31 +111,312 @@ class PipelineStageTest extends GroovyTestCase {
     ]
   }
 
+  void testBuild() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          build: "foovariant",
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def stack = pipeline.stack()
+    def stage = stack[1][0]
+
+    stubStageContexts(stack, [
+      setup: { ctx ->
+        ctx["imageLabels"] = [foo: "foolabel", bar: "barlabel"]
+      },
+    ])
+
+    mockRunner.demand.build { variant, labels ->
+      assert variant == "foovariant"
+      assert labels == [foo: "foolabel", bar: "barlabel"]
+
+      "foo-image-id"
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.build(ws, runner)
+    }
+
+    assert stage.context["imageID"] == "foo-image-id"
+  }
+
+  void testDeploy_withTest() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          build: "foovariant",
+          publish: [
+            image: true,
+          ],
+        ],
+        [
+          name: "bar",
+          deploy: [
+            image: '${foo.publishedImage}',
+            chart: 'https://an.example/chart/foo-${.stage}.tar.gz',
+            tag: '${.stage}-tag',
+            test: true,
+          ],
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def stack = pipeline.stack()
+    def stage = stack[2][0]
+
+    stubStageContexts(stack, [
+      foo: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+
+        ctx["imageName"] = "foo-project"
+        ctx["imageFullName"] = "registry.example/bar/foo-project"
+        ctx["imageTag"] = "0000-00-00-000000-foo"
+        ctx["imageTags"] = ["0000-00-00-000000-foo"]
+        ctx["publishedImage"] = "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      },
+    ])
+
+    mockRunner.demand.deployWithChart { chart, image, tag ->
+      assert chart == "https://an.example/chart/foo-bar.tar.gz"
+      assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      assert tag == "bar-tag"
+
+      "bar-release-name"
+    }
+
+    mockRunner.demand.testRelease { releaseName ->
+      assert releaseName == "bar-release-name"
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.deploy(ws, runner)
+    }
+
+    assert stage.context["releaseName"] == "bar-release-name"
+  }
+
+  void testDeploy_withoutTest() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          build: "foovariant",
+          publish: [
+            image: true,
+          ],
+        ],
+        [
+          name: "bar",
+          deploy: [
+            image: '${foo.publishedImage}',
+            chart: 'https://an.example/chart/foo-${.stage}.tar.gz',
+            tag: '${.stage}-tag',
+            test: false,
+          ],
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def stack = pipeline.stack()
+    def stage = stack[2][0]
+
+    stubStageContexts(stack, [
+      foo: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+
+        ctx["imageName"] = "foo-project"
+        ctx["imageFullName"] = "registry.example/bar/foo-project"
+        ctx["imageTag"] = "0000-00-00-000000-foo"
+        ctx["imageTags"] = ["0000-00-00-000000-foo"]
+        ctx["publishedImage"] = "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      },
+    ])
+
+    mockRunner.demand.deployWithChart { chart, image, tag ->
+      assert chart == "https://an.example/chart/foo-bar.tar.gz"
+      assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      assert tag == "bar-tag"
+
+      "bar-release-name"
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.deploy(ws, runner)
+    }
+
+    assert stage.context["releaseName"] == "bar-release-name"
+  }
+
   void testExports() {
     def pipeline = new Pipeline("foo", [
       stages: [
         [
-          name: "bar",
+          name: "foo",
+          build: "foovariant",
           exports: [
-            image: "fooimage",
+            thing: '${.imageID}-${setup.timestamp}',
+          ],
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def mockWS = new MockFor(WorkflowScript)
+    def stack = pipeline.stack()
+    def stage = stack[1][0]
+
+    stubStageContexts(stack, [
+      setup: { ctx ->
+        ctx["timestamp"] = "0000-00-00-000000"
+      },
+      foo: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+      },
+    ])
+
+    mockWS.demand.echo { msg ->
+      assert msg == "exported foo.thing='foo-image-id-0000-00-00-000000'"
+    }
+
+    mockWS.use {
+      mockRunner.use {
+        def ws = new WorkflowScript()
+        def runner = new PipelineRunner(ws)
+
+        stage.exports(ws, runner)
+      }
+    }
+
+    assert stage.context["thing"] == "foo-image-id-0000-00-00-000000"
+  }
+
+  void testPublish() {
+    def pipeline = new Pipeline("foopipeline", [
+      stages: [
+        [
+          name: "built",
+          build: "foovariant",
+        ],
+        [
+          name: "published",
+          publish: [
+            image: [
+              id: '${built.imageID}',
+            ],
           ],
         ]
       ]
     ])
 
     def mockRunner = new MockFor(PipelineRunner)
-    def mockWS = new MockFor(WorkflowScript)
+    def stack = pipeline.stack()
+    def stage = stack[2][0]
 
-    def stage = pipeline.stack()[1][0]
+    stubStageContexts(stack, [
+      setup: { ctx ->
+        ctx["project"] = "foo-project"
+        ctx["timestamp"] = "0000-00-00-000000"
+        ctx["imageLabels"] = []
+      },
+      built: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+      },
+    ])
 
-    assert stage.name == "bar"
-
-    mockWS.use {
-      mockRunner.use {
-        stage.exports(mockWS, mockRunner)
-      }
+    mockRunner.demand.registerAs { imageID, imageName, tag ->
+      assert imageID == "foo-image-id"
+      assert imageName == "foo-project"
+      assert tag == "0000-00-00-000000-published"
     }
 
-    assert stage.context["image"] == "fooimage"
+    mockRunner.demand.qualifyRegistryPath { imageName ->
+      assert imageName == "foo-project"
+
+      "registry.example/bar/foo-project"
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.publish(ws, runner)
+    }
+
+    assert stage.context["imageName"] == "foo-project"
+    assert stage.context["imageFullName"] == "registry.example/bar/foo-project"
+    assert stage.context["imageTag"] == "0000-00-00-000000-published"
+    assert stage.context["imageTags"] == ["0000-00-00-000000-published"]
+    assert stage.context["publishedImage"] == "registry.example/bar/foo-project:0000-00-00-000000-published"
+  }
+
+  void testRun() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          build: "foovariant",
+        ],
+        [
+          name: "bar",
+          run: [
+            image: '${foo.imageID}',
+            arguments: ['${.stage}arg'],
+          ],
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def stack = pipeline.stack()
+    def stage = stack[2][0]
+
+    stubStageContexts(stack, [
+      foo: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+      },
+    ])
+
+    mockRunner.demand.run { image, args ->
+      assert image == "foo-image-id"
+      assert args == ["bararg"]
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.run(ws, runner)
+    }
+  }
+
+  private void stubStageContexts(stack, stubs) {
+    stack.each { stages ->
+      stages.each { stage ->
+        stage.context["stage"] = stage.name
+
+        stubs.each { stageName, stub ->
+          if (stage.name == stageName) {
+            stub(stage.context)
+          }
+        }
+      }
+    }
   }
 }

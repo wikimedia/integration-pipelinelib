@@ -9,6 +9,8 @@ pipelines:
       - name: candidate
         build: production
         run: false
+        publish:
+          image: true
     execution:
       - [unit, candidate]
       - [lint, candidate]
@@ -16,3 +18,5 @@ pipelines:
     directory: src/service2
     stages:
       - name: test
+        exports:
+          foo: '${setup.timestamp}-${.stage}'
