@@ -93,7 +93,7 @@ class ExecutionContext implements Serializable {
    * </code></pre>
    */
   class NodeContext implements Serializable {
-    final VAR_EXPRESSION = /\$\{(\w*\.\w+)\}/
+    final VAR_EXPRESSION = /\$\{\w*\.\w+\}/
 
     final def node
     final Set ancestors
@@ -186,10 +186,12 @@ class ExecutionContext implements Serializable {
      * Interpolates the given string by substituting all symbol expressions
      * with values previously bound by ancestor nodes.
      */
-    @NonCPS
     String interpolate(String str) {
-      str.replaceAll(VAR_EXPRESSION) { _, key ->
-        this[key]
+      // NOTE call to replaceAll does not rely on its sub matching feature as
+      // Groovy CPS does not implement it correctly, and marking this method
+      // as NonCPS causes it to only ever return the first substitution.
+      str.replaceAll(VAR_EXPRESSION) {
+        this[it[2..-2]]
       }
     }
 
