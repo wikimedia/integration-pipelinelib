@@ -47,6 +47,6 @@ class Utility {
    * Returns a timestamp suitable for use in image names, tags, etc.
    */
   static String timestampLabel() {
-    new Date().format("yyyy-MM-dd-HH-mmss", TimeZone.getTimeZone("UTC"))
+    new Date().format("yyyy-MM-dd-HHmmss", TimeZone.getTimeZone("UTC"))
   }
 }
