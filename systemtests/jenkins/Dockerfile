@@ -15,6 +15,7 @@ RUN apt-get update && \
       ca-certificates \
       curl \
       gnupg2 \
+      sudo \
       software-properties-common && \
     ( curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - ) && \
     add-apt-repository \
@@ -22,6 +23,9 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
+
+COPY systemtests/jenkins/bin/stub-script /usr/local/bin/docker-pusher
+COPY systemtests/jenkins/sudoers /etc/sudoers.d/jenkins
 
 USER jenkins
 

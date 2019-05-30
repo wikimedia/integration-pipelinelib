@@ -171,7 +171,7 @@ class PipelineStage implements Serializable {
         ws.dir(pipeline.directory) {
           for (def stageStep in STEPS) {
             if (config[stageStep]) {
-              ws.echo("step: ${stageStep}")
+              ws.echo("step: ${stageStep}, config: ${config.inspect()}")
               this."${stageStep}"(ws, runner)
             }
           }
@@ -526,8 +526,9 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void exports(ws, runner) {
-    config.exports.each { name, value ->
-      context[name] = context % value
+    config.exports.each { export, value ->
+      context[export] = context % value
+      ws.echo "exported ${name}.${export}=${context[export].inspect()}"
     }
   }
 }
