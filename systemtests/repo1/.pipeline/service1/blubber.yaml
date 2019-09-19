@@ -1,12 +1,15 @@
-version: v3
+version: v4
 base: docker-registry.wikimedia.org/wikimedia-stretch
 apt: { packages: [make] }
 
 variants:
   test:
+    copies: [local]
     entrypoint: [make, unit]
   lint:
+    copies: [local]
     entrypoint: [make, lint]
   production:
+    copies: [local]
     apt: { packages: [netcat] }
     entrypoint: [./server.sh]

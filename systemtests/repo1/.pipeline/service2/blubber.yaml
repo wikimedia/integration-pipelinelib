@@ -4,4 +4,5 @@ apt: { packages: [make] }
 
 variants:
   test:
+    copies: [local]
     entrypoint: [make, test]
