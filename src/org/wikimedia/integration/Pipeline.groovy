@@ -153,6 +153,10 @@ class Pipeline implements Serializable {
       errors += "${PipelineStage.TEARDOWN} is a reserved stage name"
     }
 
+    if (!(execution instanceof List && execution.every { it instanceof List})) {
+      errors += "`execution` graph must be a list of lists (graph branches)"
+    }
+
     if (errors) {
       throw new ValidationException(errors: errors)
     }

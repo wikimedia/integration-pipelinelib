@@ -155,6 +155,33 @@ class PipelineTest extends GroovyTestCase {
     assert e.errors[0] == "setup is a reserved stage name"
   }
 
+  void testValidate_teardownReserved() {
+    def pipeline = new Pipeline("foo", [
+      stages: [[name: "teardown"]],
+    ])
+
+    def e = shouldFail(Pipeline.ValidationException) {
+      pipeline.validate()
+    }
+
+    assert e.errors.size() == 1
+    assert e.errors[0] == "teardown is a reserved stage name"
+  }
+
+  void testValidate_executionListOfBranches() {
+    def pipeline = new Pipeline("foo", [
+      stages: [[name: "foo"], [name: "bar"]],
+      execution: ["foo", "bar"],
+    ])
+
+    def e = shouldFail(Pipeline.ValidationException) {
+      pipeline.validate()
+    }
+
+    assert e.errors.size() == 1
+    assert e.errors[0] == "`execution` graph must be a list of lists (graph branches)"
+  }
+
   void testStack() {
     def pipeline = new Pipeline("foo", [
       stages: [[name: "stageA"], [name: "stageB"], [name: "stageC"]],
@@ -185,18 +212,5 @@ class PipelineTest extends GroovyTestCase {
 
     assert stack[3].size() == 1
     assert stack[3][0].name == "teardown"
-  }
-
-  void testValidate_teardownReserved() {
-    def pipeline = new Pipeline("foo", [
-      stages: [[name: "teardown"]],
-    ])
-
-    def e = shouldFail(Pipeline.ValidationException) {
-      pipeline.validate()
-    }
-
-    assert e.errors.size() == 1
-    assert e.errors[0] == "teardown is a reserved stage name"
   }
 }
