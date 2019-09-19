@@ -267,6 +267,7 @@ class ExecutionGraph implements Serializable {
    * $ echo "[graph.toString() value]" | dot -Tsvg &gt; graph.svg
    * </code></pre>
    */
+  @NonCPS
   String toString() {
     def allEdges = progression.inject([]) { edges, predecessor, successors ->
       edges + successors.collect { successor ->
