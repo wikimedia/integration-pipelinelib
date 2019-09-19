@@ -1,8 +1,12 @@
-version: v3
-base: gradle:jre
+version: v4
+base: docker-registry.wikimedia.org/releng/gradle:0.3.0
+runs:
+  environment:
+    GRADLE_USER_HOME: ~ # use default gradle home (working directory)
 
 variants:
   test:
+    copies: [local]
     runs: { insecurely: true }
     builder:
       command: [gradle, deps]
