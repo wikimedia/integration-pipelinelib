@@ -6,7 +6,8 @@ ARG VERSION
 
 USER root
 
-RUN groupadd -g 1001 docker && usermod -G docker jenkins
+# ensure jenkins has access to docker from within docker
+RUN groupadd -g 1001 docker && usermod -aG docker,root jenkins
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \

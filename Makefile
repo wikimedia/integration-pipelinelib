@@ -3,7 +3,7 @@ GRADLE := $(shell command -v gradle)
 BLUBBER := $(shell command -v blubber)
 DOCKER := $(shell command -v docker)
 
-DOCKER_TAG := piplinelib-tests-$(shell date -u +%Y%m%d-%H%M%S)
+DOCKER_TAG := pipelinelib-tests-$(shell date -u +%Y%m%d-%H%M%S)
 DOCKER_LABEL := wmf.gc=pipelinelib-tests
 DOCKER_BUILD := docker build --label $(DOCKER_LABEL) --tag $(DOCKER_TAG)
 DOCKER_RUN := docker run --rm --label $(DOCKER_LABEL) --name $(DOCKER_TAG)
@@ -11,6 +11,12 @@ DOCKER_STOP := docker stop "$(DOCKER_TAG)"
 DOCKER_STOP_ALL = docker stop $(shell docker ps -qf label=$(DOCKER_LABEL))
 DOCKER_RMI = docker rmi $(shell docker images -qf label=$(DOCKER_LABEL))
 
+ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
+	$(eval JENKINS_HOST := $(patsubst tcp://%,%,$(DOCKER_HOST)))
+	$(eval JENKINS_HOST := $(word 1, $(subst :, ,$(JENKINS_HOST))))
+endif
+
+JENKINS_HOST ?= localhost
 
 .PHONY: test
 
@@ -40,9 +46,6 @@ else
 endif
 
 systemtest:
-ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
-	$(eval JENKINS_HOST := $(patsubst tcp://%,%,$(DOCKER_HOST)))
-	$(eval JENKINS_HOST := $(word 1, $(subst :, ,$(JENKINS_HOST))))
 	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
 	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
 	$(eval BUILD_OUTPUT := $(shell mktemp))
@@ -84,7 +87,3 @@ ifeq (1,$(DEBUG))
 endif
 
 	$(DOCKER_STOP)
-else
-	@echo "Can't find Docker and your DOCKER_HOST. Set up both to run system tests."
-	@exit 1
-endif
