@@ -85,7 +85,7 @@ class Pipeline implements Serializable {
    * function correctly.
    */
   Set getRequiredNodeLabels() {
-    def labels = [] as Set
+    def labels = ['pipelinelib'] as Set
 
     for (def nodes in stack()) {
       for (def node in nodes) {

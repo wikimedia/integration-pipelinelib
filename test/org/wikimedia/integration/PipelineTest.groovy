@@ -47,6 +47,14 @@ class PipelineTest extends GroovyTestCase {
     ]
   }
 
+  void testGetDefaultNodeLabels_default() {
+    def pipeline = new Pipeline("foo", [
+      stages: [],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib"] as Set
+  }
+
   void testGetDefaultNodeLabels_build() {
     def pipeline = new Pipeline("foo", [
       stages: [
@@ -57,7 +65,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
   }
 
   void testGetDefaultNodeLabels_run() {
@@ -72,7 +80,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
   }
 
   void testGetDefaultNodeLabels_publishFiles() {
@@ -89,7 +97,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
   }
 
   void testGetDefaultNodeLabels_publishImage() {
@@ -106,7 +114,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["dockerPublish"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "dockerPublish"] as Set
   }
 
   void testRunner() {
