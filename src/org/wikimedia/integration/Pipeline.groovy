@@ -47,6 +47,10 @@ import org.wikimedia.integration.PipelineRunner
  *           cluster: ci                              # default "ci" k8s cluster
  *           chart: http://helm/chart                 # helm chart to use for deployment
  *           test: true                               # run `helm test` on deployment
+ *           overrides:                               # provide additional values to helm chart
+ *             test:
+ *               image: "tester"
+ *               tag: "stable"
  *       - name: production
  *         deploy:
  *           cluster: production

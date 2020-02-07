@@ -89,6 +89,9 @@ class PipelineStageTest extends GroovyTestCase {
 
         // defaults to true
         test: true,
+
+        // defaults to [:]
+        overrides: [:],
       ],
     ]
 
@@ -98,6 +101,10 @@ class PipelineStageTest extends GroovyTestCase {
         image: "fooimage",
         cluster: "foocluster",
         test: true,
+        overrides: [
+          foo: [ bar: "x" ],
+          baz: "y",
+        ],
       ],
     ]
 
@@ -107,6 +114,10 @@ class PipelineStageTest extends GroovyTestCase {
         image: "fooimage",
         cluster: "foocluster",
         test: true,
+        overrides: [
+          foo: [ bar: "x" ],
+          baz: "y",
+        ],
       ],
     ]
   }
@@ -165,6 +176,12 @@ class PipelineStageTest extends GroovyTestCase {
             chart: 'https://an.example/chart/foo-${.stage}.tar.gz',
             tag: '${.stage}-tag',
             test: true,
+            overrides: [
+              foo: [
+                bar: 'x${foo.imageID}y',
+                baz: 'otherthing',
+              ],
+            ],
           ],
         ],
       ]
@@ -186,10 +203,11 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, image, tag ->
+    mockRunner.demand.deployWithChart { chart, image, tag, overrides ->
       assert chart == "https://an.example/chart/foo-bar.tar.gz"
       assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
       assert tag == "bar-tag"
+      assert overrides == [("foo.bar"): 'xfoo-image-idy', ("foo.baz"): "otherthing"]
 
       "bar-release-name"
     }
@@ -246,10 +264,11 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, image, tag ->
+    mockRunner.demand.deployWithChart { chart, image, tag, overrides ->
       assert chart == "https://an.example/chart/foo-bar.tar.gz"
       assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
       assert tag == "bar-tag"
+      assert overrides == [:]
 
       "bar-release-name"
     }

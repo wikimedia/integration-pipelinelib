@@ -2,6 +2,7 @@ package org.wikimedia.integration
 
 import com.cloudbees.groovy.cps.NonCPS
 
+import static org.wikimedia.integration.Utility.flatten
 import static org.wikimedia.integration.Utility.timestampLabel
 
 import org.wikimedia.integration.ExecutionContext
@@ -136,6 +137,7 @@ class PipelineStage implements Serializable {
       dcfg.deploy.image = dcfg.deploy.image ?: '${.publishedImage}'
       dcfg.deploy.cluster = dcfg.deploy.cluster ?: "ci"
       dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.deploy.test
+      dcfg.deploy.overrides = dcfg.deploy.overrides ?: [:]
     }
 
     dcfg
@@ -471,6 +473,10 @@ class PipelineStage implements Serializable {
    *     <dt>test</dt>
    *     <dd>Whether to run <code>helm test</code> against this deployment</dd>
    *     <dd>Default: <code>true</code></dd>
+   *
+   *     <dt>overrides</dt>
+   *     <dd>Additional values provided to the Helm chart.</dd>
+   *     <dd>Default: none</dd>
    *   </dl>
    * </dd>
    * </dl>
@@ -486,6 +492,7 @@ class PipelineStage implements Serializable {
       context % config.deploy.chart,
       context % config.deploy.image,
       context % config.deploy.tag,
+      flatten(config.deploy.overrides) { context % it },
     )
 
     context["releaseName"] = release

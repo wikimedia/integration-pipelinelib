@@ -35,6 +35,28 @@ class Utility {
   }
 
   /**
+   * Flattens a hierarchical Map.
+   *
+   * @param values Map of key/values where each value may also be a Map.
+   * @param func Closure with which to transform each final value.
+   *
+   * {@code
+   * flatten([foo: [bar: "x"]]) { it * 2 } // ["foo.bar": "xx"]
+   * }
+   */
+  static Map flatten(Map values, func = { it }) {
+    values.collectEntries { k, v ->
+      if (v instanceof Map) {
+        flatten(v).collectEntries { k2, v2 ->
+          [ (k + "." + k2): func(v2) ]
+        }
+      } else {
+        [ (k): func(v) ]
+      }
+    }
+  }
+
+  /**
    * Returns a random alpha-numeric string that's length long.
    *
    * @param length Desired length of string.

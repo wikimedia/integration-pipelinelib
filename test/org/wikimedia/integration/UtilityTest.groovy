@@ -11,6 +11,27 @@ class UtilityTestCase extends GroovyTestCase {
     assert args(["foo bar'\n baz", "qux"]) == """'foo bar'\\''\n baz' 'qux'"""
   }
 
+  void testFlatten() {
+    def map = [
+      foo: [
+        bar: [
+          baz: "cat",
+        ],
+      ],
+      qux: "dog",
+    ]
+
+    assert flatten(map) == [
+      "foo.bar.baz": "cat",
+      "qux": "dog",
+    ]
+
+    assert flatten(map) { it.reverse() } == [
+      "foo.bar.baz": "tac",
+      "qux": "god",
+    ]
+  }
+
   void testRandomAlphanum() {
     def expectedChars = ('a'..'z') + ('0'..'9')
     def alphanum = randomAlphanum(12)
