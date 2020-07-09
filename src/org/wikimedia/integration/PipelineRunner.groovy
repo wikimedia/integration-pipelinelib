@@ -283,10 +283,11 @@ class PipelineRunner implements Serializable {
    *
    * @param imageID Image ID.
    * @param arguments Entry-point arguments.
+   * @param envVars Container environment variables.
    */
-  void run(String imageID, List arguments = []) {
+  void run(String imageID, List arguments = [], Map envVars = [:]) {
     workflowScript.timeout(time: 20, unit: "MINUTES") {
-      workflowScript.sh("exec docker run --rm sha256:${args([imageID] + arguments)}")
+      workflowScript.sh("exec docker run --rm ${envs(envVars)}sha256:${args([imageID] + arguments)}")
     }
   }
 

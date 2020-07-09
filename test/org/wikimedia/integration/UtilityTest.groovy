@@ -11,6 +11,10 @@ class UtilityTestCase extends GroovyTestCase {
     assert args(["foo bar'\n baz", "qux"]) == """'foo bar'\\''\n baz' 'qux'"""
   }
 
+  void testEnvs() {
+      assert envs([foo: "'FOO_KEY'", bar: "baz"]) == "-e foo='FOO_KEY' -e bar=baz "
+  }
+
   void testFlatten() {
     def map = [
       foo: [
