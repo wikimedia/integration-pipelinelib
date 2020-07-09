@@ -51,8 +51,24 @@ class PatchSet implements Serializable {
    * Returns an SCM mapping that the Jenkins `checkout` function can use to
    * clone the project repo and check out the patch set.
    */
-  Map getSCM() {
-    [
+  Map getSCM(target) {
+
+    def extensions = [
+      [$class: 'WipeWorkspace'],
+      [$class: 'CloneOption', shallow: true],
+      [$class: 'SubmoduleOption', recursiveSubmodules: true],
+    ]
+
+    if (target) {
+      extensions.add(
+        [
+          $class: 'RelativeTargetDirectory',
+          relativeTargetDir: target + '/'
+        ]
+      )
+    }
+
+    return [
       $class: 'GitSCM',
       userRemoteConfigs: [[
         url: remote.toString(),
@@ -61,11 +77,7 @@ class PatchSet implements Serializable {
       branches: [[
         name: commit,
       ]],
-      extensions: [
-        [$class: 'WipeWorkspace'],
-        [$class: 'CloneOption', shallow: true],
-        [$class: 'SubmoduleOption', recursiveSubmodules: true],
-      ]
+      extensions: extensions
     ]
   }
 }

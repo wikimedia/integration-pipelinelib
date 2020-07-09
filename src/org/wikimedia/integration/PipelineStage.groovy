@@ -8,11 +8,13 @@ import org.wikimedia.integration.ExecutionContext
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
 
+import java.net.URI
+
 class PipelineStage implements Serializable {
   static final String SETUP = 'setup'
   static final String TEARDOWN = 'teardown'
-  static final List STEPS = ['build', 'run', 'publish', 'deploy', 'exports']
-
+  static final List STEPS = ['build', 'run', 'publish', 'promote', 'deploy', 'exports']
+  static final URI CHARTSREPO = URI.create('https://gerrit.wikimedia.org/r/operations/deployment-charts.git')
 
   Pipeline pipeline
   String name
@@ -66,6 +68,23 @@ class PipelineStage implements Serializable {
    *
    *   // publish.image.tag defaults to {timestamp}-{stage name}
    *   assert defaults.publish.image.tag == '${setup.timestamp}-${.stage}'
+   * </code></pre>
+   *
+   * @example Promote a published image
+   * <pre><code>
+   *   def cfg = [promote: true]
+   *   def defaults = PipelineStage.defaultConfig(cfg)
+   *
+   *   // promote defaults to a map chart, environments, and version.
+   *   // The default chart is the project name. The default environments
+   *   // are the empty list. The default version is the published inmage tag.
+   *   assert defaults == [
+   *     [
+   *       chart: '${setup.project}',
+   *       environments: []
+   *       version: "\${/imageTag}"
+   *     ]
+   *   ]
    * </code></pre>
    */
   @NonCPS
@@ -134,6 +153,26 @@ class PipelineStage implements Serializable {
       }
 
       dcfg.publish = pcfg
+    }
+
+    if (dcfg.promote) {
+      if (dcfg.promote == true) {
+        dcfg.promote = [
+          [
+            chart: "\${${SETUP}.project}",
+            environments: [],
+            version: '${.imageTag}',
+          ]
+        ]
+      } else {
+        dcfg.promote = dcfg.promote.clone()
+
+        dcfg.promote.each{
+            it.chart = it.chart ?: "\${${SETUP}.project}"
+            it.environments = it.environments ?: []
+            it.version = it.version ?: '${.imageTag}'
+        }
+      }
     }
 
     if (dcfg.deploy) {
@@ -282,7 +321,7 @@ class PipelineStage implements Serializable {
     def imageTags = context.getAll("imageTags")
     context.getAll("publishedImage").collect { stageName, image ->
       try {
-        runner.reportToGerrit(image, imageTags[stageName] ?: [])
+        runner.reportImageToGerrit(image, imageTags[stageName] ?: [])
       } catch (all) {}
     }
   }
@@ -464,6 +503,53 @@ class PipelineStage implements Serializable {
 
     if (config.publish.files) {
       // TODO
+    }
+  }
+
+/**
+   * Promote a published artifact (create a patchset to change the image version
+   * in the deployment-charts repo).
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>promote</code></dt>
+   * <dd>
+   *   <dl>
+   *     <dt>chart</dt>
+   *     <dd>chart names to update</dd>
+   *     <dd>Default: <code>[${setup.project}]</code> (project identifier;
+   *     see {@link setup()})</dd>
+   *
+   *     <dt>environments</dt>
+   *     <dd>List of environments to update</dd>
+   *     <dd>Default: <code>[]</code></dd>
+   *    </dl>
+   * </dd>
+   * </dl>
+  */
+
+  void promote(ws, runner) {
+    //only promote if an image is published
+    if (config.promote) {
+
+      //check out the repo
+      ws.checkout(new PatchSet(
+        commit: "master",
+        ref: "refs/heads/master",
+        remote: CHARTSREPO
+      ).getSCM("deployment-charts"))
+
+      ws.sh(
+          "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chnod +x deployment-charts/.git/hooks/commit-msg"
+      )
+
+      config.promote.each {
+        def chart = context % it.chart
+        def version = context % it.version
+        def environments = context % it.environments
+
+        runner.updateChart(CHARTSREPO, chart, version, environments)
+      }
     }
   }
 

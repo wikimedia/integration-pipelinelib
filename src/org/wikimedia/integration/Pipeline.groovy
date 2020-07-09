@@ -62,6 +62,7 @@ import org.wikimedia.integration.PipelineRunner
 class Pipeline implements Serializable {
   String name
   String blubberfile
+  String deploymentChartsRepo
   String directory
   String dockerRegistry
   String dockerRegistryInternal

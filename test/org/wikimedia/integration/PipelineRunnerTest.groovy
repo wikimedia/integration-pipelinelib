@@ -10,9 +10,7 @@ import org.wikimedia.integration.Utility
 
 class PipelineRunnerTest extends GroovyTestCase {
   private class WorkflowScript { // Mock for Jenkins Pipeline workflow context
-      void withCredentials(List credentials) { // Mock for credentials plugin
 
-      }
   }
 
   private class WorkflowException extends Exception {
@@ -369,6 +367,80 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testUpdateChart() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+      def mockEnv = [
+        JOB_NAME: "fooJob",
+        BUILD_NUMBER: "1234",
+      ]
+
+      mockWorkflow.demand.getEnv { mockEnv }
+      mockWorkflow.demand.getEnv { mockEnv }
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == """\
+          |git checkout -b 'randomfoo'
+          |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' 
+          |git add -A
+          |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+          |""".stripMargin()
+      }
+
+      mockWorkflow.demand.withCredentials { list, Closure c ->
+        mockWorkflow.demand.sh { cmd ->
+          assert cmd == '''
+            |git push https://${GIT_USERNAME}:${GIT_PASSWORD}@fooRepo HEAD:refs/for/master%topic=pipeline-promote
+            |git checkout master
+            |'''.stripMargin()
+        }
+        c()
+      }
+
+      mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.updateChart("fooRepo", "fooChart", "fooVersion", [])
+    }
+  }
+
+  void testUpdateChart_withEnvs(){
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    def mockEnv = [
+      JOB_NAME: "fooJob",
+      BUILD_NUMBER: "1234",
+    ]
+
+    mockWorkflow.demand.getEnv { mockEnv }
+    mockWorkflow.demand.getEnv { mockEnv }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == """\
+        |git checkout -b 'randomfoo'
+        |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' -e 'fooEnv'
+        |git add -A
+        |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+        |""".stripMargin()
+    }
+
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == '''
+          |git push https://${GIT_USERNAME}:${GIT_PASSWORD}@fooRepo HEAD:refs/for/master%topic=pipeline-promote
+          |git checkout master
+          |'''.stripMargin()
+      }
+      c()
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.updateChart("fooRepo", "fooChart", "fooVersion", ["fooEnv"])
+    }
+  }
+
   void testRemoveImage() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
@@ -416,7 +488,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
-  void testRunWithEnvs() {
+  void testRun_withEnvs() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
@@ -449,7 +521,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
-  void testRunWithCreds() {
+  void testRun_withCreds() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
@@ -482,7 +554,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
-  void testRunWithCredsAndEnvs() {
+  void testRun_withCredsAndEnvs() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->

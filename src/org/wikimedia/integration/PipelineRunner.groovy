@@ -249,6 +249,39 @@ class PipelineRunner implements Serializable {
     nameAndTag
   }
 
+  void updateChart(String repo, String chart, String version, List environments) {
+    def promoteSubject = "${chart}: pipeline bot promote"
+    def promoteMessage = "Promote ${chart} to version ${version}"
+    def buildMessage = "Job: ${workflowScript.env.JOB_NAME} " +
+      "Build: ${workflowScript.env.BUILD_NUMBER}"
+    def gitPush = 'git push https://${GIT_USERNAME}:${GIT_PASSWORD}@' + repo +
+      " HEAD:refs/for/master%topic=pipeline-promote"
+    def environmentsString = ""
+    def branchName = randomAlphanum(8)
+
+    environmentsString = environments.collect { "-e " + arg(it) }.join(" ")
+
+    workflowScript.sh("""\
+      |git checkout -b ${arg(branchName)}
+      |./update_version/update_version.py -s ${arg(chart)} -v ${arg(version)} ${environmentsString}
+      |git add -A
+      |git commit -m ${arg(promoteSubject)} -m ${arg(promoteMessage)} -m ${arg(buildMessage)}
+    |""".stripMargin())
+
+    workflowScript.withCredentials(
+      [[
+        $class: 'UsernamePasswordMultiBinding',
+        credentialsId: 'gerrit.pipelinebot',
+        passwordVariable: 'GIT_PASSWORD',
+        usernameVariable: 'GIT_USERNAME'
+      ]]
+    ) { workflowScript.sh("""
+      |${gitPush}
+      |git checkout master
+      |""".stripMargin())
+    }
+  }
+
   /**
    * Removes the given image from the local cache. All tags are removed from
    * the image as well.
@@ -277,7 +310,7 @@ class PipelineRunner implements Serializable {
    * @param imageName Fully qualified name of published image.
    * @param imageTags Image tags.
    */
-  void reportToGerrit(imageName, imageTags = []) {
+  void reportImageToGerrit(imageName, imageTags = []) {
     def comment
 
     if (workflowScript.currentBuild.result == 'SUCCESS' && imageName) {

@@ -9,7 +9,7 @@ import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.ExecutionContext
 
 class PipelineStageTest extends GroovyTestCase {
-  private class WorkflowScript {} // Mock for Jenkins Pipeline workflow context
+  private class WorkflowScript { } // Mock for Jenkins Pipeline workflow context
 
   void testDefaultConfig_shortHand() {
     // shorthand with just name is: build and run a variant
@@ -71,6 +71,24 @@ class PipelineStageTest extends GroovyTestCase {
           tags: [],
         ],
       ],
+    ]
+  }
+
+  void testDefaultConfig_promote() {
+    def cfg = [
+      promote: true,
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      promote: [
+        [
+          chart: '${setup.project}',
+
+          environments: [],
+
+          version: '${.imageTag}',
+        ]
+      ]
     ]
   }
 
@@ -398,6 +416,88 @@ class PipelineStageTest extends GroovyTestCase {
     assert stage.context["imageTag"] == "0000-00-00-000000-published"
     assert stage.context["imageTags"] == ["0000-00-00-000000-published"]
     assert stage.context["publishedImage"] == "registry.example/bar/foo-project:0000-00-00-000000-published"
+  }
+
+  void testPromote() {
+    def pipeline = new Pipeline("foopipeline", [
+      stages: [
+        [
+          name: "built",
+          build: "foovariant",
+        ],
+        [
+          name: "published",
+          publish: [
+            image: [
+              id: '${built.imageID}',
+            ],
+          ],
+        ],
+        [
+          name: "promoted",
+          promote: [
+            [
+              chart: 'foochart',
+              version: 'fooversion',
+            ],
+            [
+              chart: 'foochart2',
+              version: 'fooversion',
+            ],
+          ]
+        ]
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def mockWorkflow = new MockFor(WorkflowScript)
+    def stack = pipeline.stack()
+    def stage = stack[3][0]
+
+    stubStageContexts(stack, [
+      setup: { ctx ->
+        ctx["project"] = "foo-project"
+        ctx["timestamp"] = "0000-00-00-000000"
+        ctx["imageLabels"] = []
+      },
+      built: { ctx ->
+        ctx["imageID"] = "foo-image-id"
+      },
+      published: { ctx ->
+        ctx["imageName"] = "foo-project"
+        ctx["imageFullName"] = "registry.example/bar/foo-project"
+        ctx["imageTag"] = "0000-00-00-000000-published"
+        ctx["imageTags"] = ["0000-00-00-000000-published"]
+        ctx["publishedImage"] = "registry.example/bar/foo-project:0000-00-00-000000-published"
+      }
+    ])
+
+    mockWorkflow.demand.checkout {  }
+
+    mockWorkflow.demand.sh { cmd ->
+      "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chnod +x deployment-charts/.git/hooks/commit-msg"
+    }
+
+    mockRunner.demand.updateChart { repo, chart, version, environments ->
+      assert chart == 'foochart'
+      assert version == 'fooversion'
+      assert environments == []
+    }
+
+    mockRunner.demand.updateChart { repo, chart, version, environments ->
+      assert chart == 'foochart2'
+      assert version == 'fooversion'
+      assert environments == []
+    }
+
+    mockRunner.use {
+      mockWorkflow.use {
+        def ws = new WorkflowScript()
+        def runner = new PipelineRunner(ws)
+
+        stage.promote(ws, runner)
+      }
+    }
   }
 
   void testRun() {
