@@ -323,25 +323,4 @@ class PipelineRunnerTest extends GroovyTestCase {
       runner.run("foo")
     }
   }
-
-  void testRunWithEnvs() {
-    def mockWorkflow = new MockFor(WorkflowScript)
-
-    mockWorkflow.demand.timeout { Map args, Closure c ->
-      assert args.time == 20
-      assert args.unit == "MINUTES"
-
-      c()
-    }
-
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "exec docker run --rm -e foo=bar sha256:'foo'"
-    }
-
-    mockWorkflow.use {
-      def runner = new PipelineRunner(new WorkflowScript())
-
-      runner.run("foo", [], [foo: "bar"])
-    }
-  }
 }
