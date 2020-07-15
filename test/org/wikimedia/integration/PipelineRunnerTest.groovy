@@ -9,7 +9,11 @@ import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.Utility
 
 class PipelineRunnerTest extends GroovyTestCase {
-  private class WorkflowScript {} // Mock for Jenkins Pipeline workflow context
+  private class WorkflowScript { // Mock for Jenkins Pipeline workflow context
+      void withCredentials(List credentials) { // Mock for credentials plugin
+
+      }
+  }
 
   void setUp() {
     // Mock all static calls to Utility.randomAlphanum
@@ -313,14 +317,109 @@ class PipelineRunnerTest extends GroovyTestCase {
       c()
     }
 
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "exec docker run --rm sha256:'foo'"
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      assert list == []
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == '''
+          set +x
+          exec docker run --rm sha256:'foo'
+          set -x
+        '''
+      }
+      c()
     }
 
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
       runner.run("foo")
+    }
+  }
+
+  void testRunWithEnvs() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.timeout { Map args, Closure c ->
+      assert args.time == 20
+      assert args.unit == "MINUTES"
+
+      c()
+    }
+
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      assert list == []
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == '''
+          set +x
+          exec docker run --rm -e "foo=bar" sha256:'foo'
+          set -x
+        '''
+      }
+      c()
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.run("foo", [], [foo: "bar"])
+    }
+  }
+
+  void testRunWithCreds() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.timeout { Map args, Closure c ->
+      assert args.time == 20
+      assert args.unit == "MINUTES"
+
+      c()
+    }
+
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      assert list == [[$class:"'StringBinding'", credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == '''
+          set +x
+          exec docker run --rm -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:'foo'
+          set -x
+        '''
+      }
+      c()
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.run("foo", [], [:], [sonarid:'SONAR_API_KEY'])
+    }
+  }
+
+  void testRunWithCredsAndEnvs() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.timeout { Map args, Closure c ->
+      assert args.time == 20
+      assert args.unit == "MINUTES"
+
+      c()
+    }
+
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      assert list == [[$class:"'StringBinding'", credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == '''
+          set +x
+          exec docker run --rm -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:'foo'
+          set -x
+        '''
+      }
+      c()
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.run("foo", [], [foo: "bar"], [sonarid:'SONAR_API_KEY'])
     }
   }
 }

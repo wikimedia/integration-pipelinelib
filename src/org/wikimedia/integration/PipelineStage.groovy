@@ -100,6 +100,12 @@ class PipelineStage implements Serializable {
 
       // run.arguments defaults to []
       dcfg.run.arguments = dcfg.run.arguments ?: []
+
+      // run.env defaults to [:]
+      dcfg.run.env = dcfg.run.env ?: [:]
+
+      // run.credentials defaults to [:]
+      dcfg.run.credentials = dcfg.run.credentials ?: [:]
     }
 
     if (dcfg.publish) {
@@ -344,12 +350,19 @@ class PipelineStage implements Serializable {
    *       run:
    *         image: '${built.imageID}'
    *         arguments: [test]
+   *         env:
+   *           - MY_VAR: 'Hello'
+   *         credentials:
+   *           - id: 'sonarid'
+   *             name: 'SONAR_API_KEY'
    * </code></pre>
    */
   void run(ws, runner) {
     runner.run(
       context % config.run.image,
       config.run.arguments.collect { context % it },
+      config.run.env,
+      config.run.credentials.collectEntries { it -> [it.id, it.name]},
     )
   }
 

@@ -34,6 +34,17 @@ class Utility {
     arguments.collect { arg(it) }.join(" ")
   }
 
+/**
+* Combines all given environment variables into docker option format
+* @param envVars Environment variables
+* @return environment variable options string
+*/
+  static String envs(Map envVars) {
+    envVars ? envVars.collect { k, v ->
+         '-e "' + k + '=' + v + '"'
+    }.join(" ") + " " : ""
+  }
+
   /**
    * Flattens a hierarchical Map.
    *
