@@ -310,6 +310,10 @@ class PipelineRunnerTest extends GroovyTestCase {
   void testRun() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
+    mockWorkflow.demand.echo { string ->
+      assert string == 'exec docker run --rm sha256:\'foo\''
+    }
+
     mockWorkflow.demand.timeout { Map args, Closure c ->
       assert args.time == 20
       assert args.unit == "MINUTES"
@@ -338,6 +342,10 @@ class PipelineRunnerTest extends GroovyTestCase {
 
   void testRunWithEnvs() {
     def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.echo { string ->
+      assert string == 'exec docker run --rm -e "foo=bar" sha256:\'foo\''
+    }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
       assert args.time == 20
@@ -368,6 +376,10 @@ class PipelineRunnerTest extends GroovyTestCase {
   void testRunWithCreds() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
+    mockWorkflow.demand.echo { string ->
+      assert string == 'exec docker run --rm -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
+    }
+
     mockWorkflow.demand.timeout { Map args, Closure c ->
       assert args.time == 20
       assert args.unit == "MINUTES"
@@ -396,6 +408,10 @@ class PipelineRunnerTest extends GroovyTestCase {
 
   void testRunWithCredsAndEnvs() {
     def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.echo { string ->
+      assert string == 'exec docker run --rm -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
+    }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
       assert args.time == 20

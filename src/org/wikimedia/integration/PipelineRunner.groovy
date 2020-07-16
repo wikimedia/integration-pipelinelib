@@ -290,7 +290,7 @@ class PipelineRunner implements Serializable {
     def credsWithVars = creds.collectEntries { k, v -> [v, '\${' + v + '}'] }
     def runString = sprintf('exec docker run --rm %ssha256:%s', envs(envVars + credsWithVars), argsString)
 
-    println(runString)
+    workflowScript.echo(runString)
 
     workflowScript.timeout(time: 20, unit: "MINUTES") {
       workflowScript.withCredentials(textCredsList){
