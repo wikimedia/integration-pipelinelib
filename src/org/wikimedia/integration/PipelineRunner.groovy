@@ -114,7 +114,7 @@ class PipelineRunner implements Serializable {
     workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
 
     def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
-    def dockerBuild = "docker build --pull ${labelFlags} --file ${arg(dockerfile)} ."
+    def dockerBuild = "docker build --pull --force-rm=true ${labelFlags} --file ${arg(dockerfile)} ."
 
     def output = workflowScript.sh(returnStdout: true, script: dockerBuild)
 

@@ -100,7 +100,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { args ->
       assert args.returnStdout
-      assert args.script ==~ (/^docker build --pull --label 'foo=a' --label 'bar=b' / +
+      assert args.script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
                             /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' \.$/)
 
       // Mock `docker build` output to test that we correctly parse the image ID
