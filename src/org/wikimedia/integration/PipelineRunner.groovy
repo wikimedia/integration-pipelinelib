@@ -285,7 +285,7 @@ class PipelineRunner implements Serializable {
    * @param arguments Entry-point arguments.
    */
   void run(String imageID, List arguments = [], Map envVars = [:], Map creds = [:]) {
-    def textCredsList = creds.collect{ k, v -> [$class: "'StringBinding'", credentialsId: k, variable: v]}
+    def textCredsList = creds.collect{ k, v -> [$class: 'StringBinding', credentialsId: k, variable: v]}
     def argsString = args([imageID] + arguments)
     def credsWithVars = creds.collectEntries { k, v -> [v, '\${' + v + '}'] }
     def runString = sprintf('exec docker run --rm %ssha256:%s', envs(envVars + credsWithVars), argsString)

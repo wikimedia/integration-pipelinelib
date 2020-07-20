@@ -388,7 +388,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
-      assert list == [[$class:"'StringBinding'", credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      assert list == [[$class:'StringBinding', credentialsId:'sonarid', variable:'SONAR_API_KEY']]
       mockWorkflow.demand.sh { cmd ->
         assert cmd == '''
           set +x
@@ -421,7 +421,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
-      assert list == [[$class:"'StringBinding'", credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      assert list == [[$class:'StringBinding', credentialsId:'sonarid', variable:'SONAR_API_KEY']]
       mockWorkflow.demand.sh { cmd ->
         assert cmd == '''
           set +x
