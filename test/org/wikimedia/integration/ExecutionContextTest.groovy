@@ -127,6 +127,17 @@ class ExecutionContextTest extends GroovyTestCase {
     assert (context.ofNode("c") % 'w-t-${.foo}') == "w-t-cfoo"
   }
 
+  void testStringInterpolation_nonString() {
+    /*
+     *  a
+     */
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a"],
+    ]))
+
+    assert (context.ofNode("a") % true) == true
+  }
+
   void testNodeContextGetAll() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a", "b", "c", "z"],

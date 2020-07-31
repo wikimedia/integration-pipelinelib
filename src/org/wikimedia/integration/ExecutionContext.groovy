@@ -186,7 +186,12 @@ class ExecutionContext implements Serializable {
      * Interpolates the given string by substituting all symbol expressions
      * with values previously bound by ancestor nodes.
      */
-    String interpolate(String str) {
+    def interpolate(str) {
+      // Tolerate being passed non-strings by simply returning them
+      if (!(str instanceof String || str instanceof GString)) {
+        return str
+      }
+
       // NOTE call to replaceAll does not rely on its sub matching feature as
       // Groovy CPS does not implement it correctly, and marking this method
       // as NonCPS causes it to only ever return the first substitution.
@@ -198,7 +203,7 @@ class ExecutionContext implements Serializable {
     /**
      * Operator alias for {@link interpolate()}.
      */
-    String mod(String str) {
+    def mod(str) {
       interpolate(str)
     }
 
