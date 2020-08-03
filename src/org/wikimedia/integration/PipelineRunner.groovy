@@ -165,8 +165,15 @@ class PipelineRunner implements Serializable {
     def release = imageName + "-" + randomAlphanum(8)
 
     workflowScript.writeYaml(data: values, file: valuesFile)
-    helm("install --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
-      "-n ${arg(release)} --debug --wait --timeout ${timeout} ${arg(chart)}")
+
+    try {
+      helm("install --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
+        "-n ${arg(release)} --debug --wait --timeout ${timeout} ${arg(chart)}")
+    } catch (Exception e) {
+      // Attempt to purge failed releases
+      purgeRelease(release)
+      throw e
+    }
 
     release
   }

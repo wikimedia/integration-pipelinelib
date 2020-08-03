@@ -15,6 +15,12 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
   }
 
+  private class WorkflowException extends Exception {
+    public WorkflowException(message) {
+      super(message)
+    }
+  }
+
   void setUp() {
     // Mock all static calls to Utility.randomAlphanum
     Utility.metaClass.static.randomAlphanum = { "randomfoo" }
@@ -206,6 +212,46 @@ class PipelineRunnerTest extends GroovyTestCase {
                                       kubeConfig: "/etc/kubernetes/foo.config")
 
       runner.deploy("foo/name", "footag")
+    }
+  }
+
+  void testDeploy_purgesFailedRelease() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.readYaml {
+      [chart: "http://an.example/chart.tgz"]
+    }
+
+    mockWorkflow.demand.writeYaml { kwargs ->
+      return
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "helm --tiller-namespace='ci' install " +
+                        "--namespace='ci' " +
+                        "--values '.pipeline/values.yaml.randomfoo' " +
+                        "-n 'foo/name-randomfoo' " +
+                        "--debug --wait --timeout 120 " +
+                        "'http://an.example/chart.tgz'"
+
+      assert cmd == expectedCmd
+
+      throw new WorkflowException("foo");
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      def expectedCmd = "helm --tiller-namespace='ci' " +
+                        "delete --purge 'foo/name-randomfoo'"
+
+      assert cmd == expectedCmd
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      shouldFail(WorkflowException) {
+        runner.deploy("foo/name", "footag")
+      }
     }
   }
 
