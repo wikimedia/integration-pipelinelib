@@ -2,7 +2,6 @@ package org.wikimedia.integration
 
 import com.cloudbees.groovy.cps.NonCPS
 
-import static org.wikimedia.integration.Utility.flatten
 import static org.wikimedia.integration.Utility.timestampLabel
 
 import org.wikimedia.integration.ExecutionContext
@@ -505,7 +504,7 @@ class PipelineStage implements Serializable {
       context % config.deploy.chart,
       context % config.deploy.image,
       context % config.deploy.tag,
-      flatten(config.deploy.overrides) { context % it },
+      context % config.deploy.overrides,
     )
 
     context["releaseName"] = release

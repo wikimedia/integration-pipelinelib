@@ -145,13 +145,25 @@ class PipelineRunnerTest extends GroovyTestCase {
       [chart: "http://an.example/chart.tgz"]
     }
 
+    mockWorkflow.demand.writeYaml { kwargs ->
+      assert kwargs["file"] == ".pipeline/values.yaml.randomfoo"
+      assert kwargs["data"] == [
+        docker: [
+          registry: "docker-registry.wikimedia.org",
+          pull_policy: "IfNotPresent",
+        ],
+        main_app: [
+          image: "wikimedia/foo/name",
+          version: "footag",
+        ],
+        foo: "override",
+      ]
+    }
+
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "helm --tiller-namespace='ci' install " +
-                        "--namespace='ci' --set " +
-                        "'docker.registry=docker-registry.wikimedia.org'," +
-                        "'docker.pull_policy=IfNotPresent'," +
-                        "'main_app.image=wikimedia/foo/name'," +
-                        "'main_app.version=footag' " +
+                        "--namespace='ci' " +
+                        "--values '.pipeline/values.yaml.randomfoo' " +
                         "-n 'foo/name-randomfoo' " +
                         "--debug --wait --timeout 120 " +
                         "'http://an.example/chart.tgz'"
@@ -162,7 +174,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.deploy("foo/name", "footag")
+      runner.deploy("foo/name", "footag", [foo: "override"])
     }
   }
 
@@ -173,14 +185,15 @@ class PipelineRunnerTest extends GroovyTestCase {
       [chart: "http://an.example/chart.tgz"]
     }
 
+    mockWorkflow.demand.writeYaml { kwargs ->
+      return
+    }
+
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
                         "helm --tiller-namespace='ci' install " +
-                        "--namespace='ci' --set " +
-                        "'docker.registry=docker-registry.wikimedia.org'," +
-                        "'docker.pull_policy=IfNotPresent'," +
-                        "'main_app.image=wikimedia/foo/name'," +
-                        "'main_app.version=footag' " +
+                        "--namespace='ci' " +
+                        "--values '.pipeline/values.yaml.randomfoo' " +
                         "-n 'foo/name-randomfoo' " +
                         "--debug --wait --timeout 120 " +
                         "'http://an.example/chart.tgz'"

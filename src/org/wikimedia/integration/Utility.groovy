@@ -46,25 +46,57 @@ class Utility {
   }
 
   /**
-   * Flattens a hierarchical Map.
-   *
-   * @param values Map of key/values where each value may also be a Map.
-   * @param func Closure with which to transform each final value.
+   * Iterates recursively over lists and maps in the given object and returns
+   * a new object where each member string has been mapped to a new value
+   * using the given closure.
    *
    * {@code
-   * flatten([foo: [bar: "x"]]) { it * 2 } // ["foo.bar": "xx"]
+   * mapStrings([foo: [bar: "ab"]], [baz: "xy"]) { it.reverse() }
+   * // [foo: [bar: "ba"], baz: "yx"]
    * }
    */
-  static Map flatten(Map values, func = { it }) {
-    values.collectEntries { k, v ->
-      if (v instanceof Map) {
-        flatten(v).collectEntries { k2, v2 ->
-          [ (k + "." + k2): func(v2) ]
+  static def mapStrings(value, func = { it }) {
+    switch (value) {
+      case Map:
+        return value.collectEntries { k, v -> [k, mapStrings(v, func)] }
+      case List:
+        return value.collect { v -> mapStrings(v, func) }
+      case String:
+      case GString:
+        return func(value)
+      default:
+        return value
+    }
+  }
+
+  /**
+   * Merges two or more maps recursively.
+   *
+   * {@code
+   * merge([foo: [bar: "x", baz: "y"]], [foo: [baz: "z"]])
+   * // [foo: [bar: "x", baz: "z"]]
+   * }
+   */
+  static Map merge(Map... maps) {
+    if (maps.length == 0) {
+      return [:]
+    } else if (maps.length == 1) {
+      return maps[0]
+    }
+
+    Map result = [:]
+
+    maps.each { map ->
+      map.each { k, v ->
+        if (v instanceof Map && result[k] instanceof Map) {
+          result[k] = merge(result[k], v)
+        } else {
+          result[k] = v
         }
-      } else {
-        [ (k): func(v) ]
       }
     }
+
+    return result
   }
 
   /**

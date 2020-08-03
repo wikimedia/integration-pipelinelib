@@ -211,7 +211,7 @@ class PipelineStageTest extends GroovyTestCase {
       assert chart == "https://an.example/chart/foo-bar.tar.gz"
       assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
       assert tag == "bar-tag"
-      assert overrides == [("foo.bar"): 'xfoo-image-idy', ("foo.baz"): "otherthing"]
+      assert overrides == [foo: [bar: "xfoo-image-idy", baz: "otherthing"]]
 
       "bar-release-name"
     }

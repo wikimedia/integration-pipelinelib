@@ -149,18 +149,24 @@ class PipelineRunner implements Serializable {
    */
   String deployWithChart(String chart, String imageName, String imageTag, Map overrides = [:]) {
     def values = [
-      "docker.registry": registry,
-      "docker.pull_policy": pullPolicy,
-      "main_app.image": [repository, imageName].join("/"),
-      "main_app.version": imageTag,
-    ] + overrides
+      docker: [
+        registry: registry,
+        pull_policy: pullPolicy,
+      ],
+      main_app: [
+        image: [repository, imageName].join("/"),
+        version: imageTag,
+      ]
+    ]
 
-    values = values.collect { k, v -> arg(k + "=" + v) }.join(",")
+    values = merge(values, overrides)
 
+    def valuesFile = getTempFile("values.yaml.")
     def release = imageName + "-" + randomAlphanum(8)
 
-    helm("install --namespace=${arg(namespace)} --set ${values} -n ${arg(release)} " +
-         "--debug --wait --timeout ${timeout} ${arg(chart)}")
+    workflowScript.writeYaml(data: values, file: valuesFile)
+    helm("install --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
+      "-n ${arg(release)} --debug --wait --timeout ${timeout} ${arg(chart)}")
 
     release
   }

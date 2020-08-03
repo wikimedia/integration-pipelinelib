@@ -15,24 +15,55 @@ class UtilityTestCase extends GroovyTestCase {
       assert envs([foo: "'FOO_KEY'", bar: "baz"]) == """-e "foo='FOO_KEY'" -e "bar=baz" """
   }
 
-  void testFlatten() {
+  void testMapStrings() {
     def map = [
       foo: [
         bar: [
-          baz: "cat",
+          baz: ["cat", "gnat"],
         ],
       ],
       qux: "dog",
+      quux: true,
     ]
 
-    assert flatten(map) == [
-      "foo.bar.baz": "cat",
-      "qux": "dog",
+    assert mapStrings(map) { it.reverse() } == [
+      foo: [
+        bar: [
+          baz: ["tac", "tang"],
+        ],
+      ],
+      qux: "god",
+      quux: true,
+    ]
+  }
+
+  void testMerge() {
+    def map1 = [
+      foo: [
+        bar: [
+          baz: "cat",
+          qux: "dog",
+        ],
+      ],
     ]
 
-    assert flatten(map) { it.reverse() } == [
-      "foo.bar.baz": "tac",
-      "qux": "god",
+    def map2 = [
+      foo: [
+        bar: [
+          qux: ["goat", "boat"]
+        ]
+      ],
+      tree: "rocketship",
+    ]
+
+    assert merge(map1, map2) == [
+      foo: [
+        bar: [
+          baz: "cat",
+          qux: ["goat", "boat"],
+        ],
+      ],
+      tree: "rocketship",
     ]
   }
 

@@ -3,6 +3,8 @@ package org.wikimedia.integration
 import com.cloudbees.groovy.cps.NonCPS
 import org.codehaus.groovy.GroovyException
 
+import static org.wikimedia.integration.Utility.mapStrings
+
 import org.wikimedia.integration.ExecutionGraph
 
 /**
@@ -183,20 +185,17 @@ class ExecutionContext implements Serializable {
     }
 
     /**
-     * Interpolates the given string by substituting all symbol expressions
-     * with values previously bound by ancestor nodes.
+     * Interpolates the strings found in the given object by substituting all
+     * symbol expressions with values previously bound by ancestor nodes.
      */
-    def interpolate(str) {
-      // Tolerate being passed non-strings by simply returning them
-      if (!(str instanceof String || str instanceof GString)) {
-        return str
-      }
-
-      // NOTE call to replaceAll does not rely on its sub matching feature as
-      // Groovy CPS does not implement it correctly, and marking this method
-      // as NonCPS causes it to only ever return the first substitution.
-      str.replaceAll(VAR_EXPRESSION) {
-        this[it[2..-2]]
+    def interpolate(obj) {
+      mapStrings(obj) { str ->
+        // NOTE call to replaceAll does not rely on its sub matching feature as
+        // Groovy CPS does not implement it correctly, and marking this method
+        // as NonCPS causes it to only ever return the first substitution.
+        str.replaceAll(VAR_EXPRESSION) {
+          this[it[2..-2]]
+        }
       }
     }
 
