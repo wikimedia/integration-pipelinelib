@@ -420,7 +420,7 @@ class PipelineRunner implements Serializable {
    * @param release Previously deployed release name.
    */
   void testRelease(String release) {
-    helm("test --cleanup ${arg(release)}")
+    helm("test --logs --cleanup ${arg(release)}")
   }
 
   private

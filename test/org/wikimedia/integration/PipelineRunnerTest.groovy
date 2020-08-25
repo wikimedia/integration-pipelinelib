@@ -308,7 +308,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' test --cleanup 'foorelease'"
+      def expectedCmd = "helm --tiller-namespace='ci' test --logs --cleanup 'foorelease'"
 
       assert cmd == expectedCmd
     }
@@ -325,7 +325,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
-                        "helm --tiller-namespace='ci' test --cleanup 'foorelease'"
+                        "helm --tiller-namespace='ci' test --logs --cleanup 'foorelease'"
 
       assert cmd == expectedCmd
     }
