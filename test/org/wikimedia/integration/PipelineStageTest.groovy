@@ -77,13 +77,16 @@ class PipelineStageTest extends GroovyTestCase {
   void testDefaultConfig_deploy() {
     def cfg = [
       deploy: [
-        chart: "chart.tar.gz",
+          chart: [:]
       ],
     ]
 
     assert PipelineStage.defaultConfig(cfg) == [
       deploy: [
-        chart: "chart.tar.gz",
+        chart: [
+          name: '${setup.project}',
+          version: "",
+        ],
 
         // defaults to the previously published image
         image: '${.publishedImage}',
@@ -101,7 +104,6 @@ class PipelineStageTest extends GroovyTestCase {
 
     cfg = [
       deploy: [
-        chart: "chart.tar.gz",
         image: "fooimage",
         cluster: "foocluster",
         test: true,
@@ -114,7 +116,10 @@ class PipelineStageTest extends GroovyTestCase {
 
     assert PipelineStage.defaultConfig(cfg) == [
       deploy: [
-        chart: "chart.tar.gz",
+        chart: [
+          name: '${setup.project}',
+          version: "",
+        ],
         image: "fooimage",
         cluster: "foocluster",
         test: true,
@@ -177,7 +182,9 @@ class PipelineStageTest extends GroovyTestCase {
           name: "bar",
           deploy: [
             image: '${foo.publishedImage}',
-            chart: 'https://an.example/chart/foo-${.stage}.tar.gz',
+            chart: [
+              name: 'foo',
+            ],
             tag: '${.stage}-tag',
             test: true,
             overrides: [
@@ -207,8 +214,9 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, image, tag, overrides ->
-      assert chart == "https://an.example/chart/foo-bar.tar.gz"
+    mockRunner.demand.deployWithChart { chart, chartVersion, image, tag, overrides ->
+      assert chart == "foo"
+      assert chartVersion == ""
       assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
       assert tag == "bar-tag"
       assert overrides == [foo: [bar: "xfoo-image-idy", baz: "otherthing"]]
@@ -244,7 +252,9 @@ class PipelineStageTest extends GroovyTestCase {
           name: "bar",
           deploy: [
             image: '${foo.publishedImage}',
-            chart: 'https://an.example/chart/foo-${.stage}.tar.gz',
+            chart: [
+              name: 'foo',
+            ],
             tag: '${.stage}-tag',
             test: false,
           ],
@@ -268,8 +278,9 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, image, tag, overrides ->
-      assert chart == "https://an.example/chart/foo-bar.tar.gz"
+    mockRunner.demand.deployWithChart { chart, version, image, tag, overrides ->
+      assert chart == "foo"
+      assert version == ""
       assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
       assert tag == "bar-tag"
       assert overrides == [:]

@@ -148,7 +148,12 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.readYaml {
-      [chart: "http://an.example/chart.tgz"]
+      [
+        chart: [
+          name: "exampleChart",
+          version: "0.0.1",
+        ]
+      ]
     }
 
     mockWorkflow.demand.writeYaml { kwargs ->
@@ -168,11 +173,13 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "helm --tiller-namespace='ci' install " +
+                        "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
                         "-n 'foo/name-randomfoo' " +
                         "--debug --wait --timeout 120 " +
-                        "'http://an.example/chart.tgz'"
+                        "--repo https://helm-charts.wikimedia.org/stable/ " +
+                        "--version '0.0.1'"
 
       assert cmd == expectedCmd
     }
@@ -188,7 +195,11 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.readYaml {
-      [chart: "http://an.example/chart.tgz"]
+      [
+        chart: [
+          name: "exampleChart",
+        ],
+      ]
     }
 
     mockWorkflow.demand.writeYaml { kwargs ->
@@ -198,11 +209,12 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
                         "helm --tiller-namespace='ci' install " +
+                        "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
                         "-n 'foo/name-randomfoo' " +
                         "--debug --wait --timeout 120 " +
-                        "'http://an.example/chart.tgz'"
+                        "--repo https://helm-charts.wikimedia.org/stable/ "
 
       assert cmd == expectedCmd
     }
@@ -219,7 +231,11 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.readYaml {
-      [chart: "http://an.example/chart.tgz"]
+      [
+        chart: [
+          name: "exampleChart",
+        ]
+      ]
     }
 
     mockWorkflow.demand.writeYaml { kwargs ->
@@ -228,11 +244,12 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "helm --tiller-namespace='ci' install " +
+                        "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
                         "-n 'foo/name-randomfoo' " +
                         "--debug --wait --timeout 120 " +
-                        "'http://an.example/chart.tgz'"
+                        "--repo https://helm-charts.wikimedia.org/stable/ "
 
       assert cmd == expectedCmd
 

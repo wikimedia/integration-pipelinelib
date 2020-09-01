@@ -143,6 +143,15 @@ class PipelineStage implements Serializable {
       dcfg.deploy.cluster = dcfg.deploy.cluster ?: "ci"
       dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.deploy.test
       dcfg.deploy.overrides = dcfg.deploy.overrides ?: [:]
+
+      if (dcfg.deploy.chart) {
+        dcfg.deploy.chart = dcfg.deploy.chart.clone()
+      } else {
+        dcfg.deploy.chart = [:]
+      }
+
+      dcfg.deploy.chart.name =  dcfg.deploy.chart.name ?: "\${${SETUP}.project}"
+      dcfg.deploy.chart.version = dcfg.deploy.chart.version ?: ""
     }
 
     dcfg
@@ -501,7 +510,8 @@ class PipelineStage implements Serializable {
    */
   void deploy(ws, runner) {
     def release = runner.deployWithChart(
-      context % config.deploy.chart,
+      context % config.deploy.chart.name,
+      context % config.deploy.chart.version,
       context % config.deploy.image,
       context % config.deploy.tag,
       context % config.deploy.overrides,

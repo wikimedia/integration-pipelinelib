@@ -74,6 +74,11 @@ class PipelineRunner implements Serializable {
   def repository = "wikimedia"
 
   /**
+   * Default helm chart registry for helm charts
+   */
+  def chartRepository = "https://helm-charts.wikimedia.org/stable/"
+
+  /**
    * Timeout for deployment using Helm.
    */
   def timeout = 120
@@ -133,9 +138,10 @@ class PipelineRunner implements Serializable {
   String deploy(String imageName, String imageTag, Map overrides = [:]) {
     def cfg = workflowScript.readYaml(file: getConfigFile(helmConfig))
 
-    assert cfg instanceof Map && cfg.chart : "you must define 'chart: <helm chart url>' in ${cfg}"
+    assert cfg instanceof Map && cfg.chart && cfg.chart.name : "you must define 'chart: { name: <helm chart name> }' in ${cfg}"
+    cfg.chart.version = cfg.chart.version ?: ""
 
-    deployWithChart(cfg.chart, imageName, imageTag, overrides)
+    deployWithChart(cfg.chart.name, cfg.chart.version, imageName, imageTag, overrides)
   }
 
   /**
@@ -143,11 +149,12 @@ class PipelineRunner implements Serializable {
    * the name of the release.
    *
    * @param chart Chart URL.
+   * @param chartVersion the version of the chart.
    * @param imageName Name of the registered image to deploy.
    * @param imageTag  Tag of the registered image to use.
    * @param overrides Additional Helm value overrides to set.
    */
-  String deployWithChart(String chart, String imageName, String imageTag, Map overrides = [:]) {
+  String deployWithChart(String chart, String chartVersion, String imageName, String imageTag, Map overrides = [:]) {
     def values = [
       docker: [
         registry: registry,
@@ -163,12 +170,13 @@ class PipelineRunner implements Serializable {
 
     def valuesFile = getTempFile("values.yaml.")
     def release = imageName + "-" + randomAlphanum(8)
+    def version = chartVersion ? "--version " + arg(chartVersion) : ""
 
     workflowScript.writeYaml(data: values, file: valuesFile)
 
     try {
-      helm("install --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
-        "-n ${arg(release)} --debug --wait --timeout ${timeout} ${arg(chart)}")
+      helm("install ${arg(chart)} --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
+        "-n ${arg(release)} --debug --wait --timeout ${timeout} --repo ${chartRepository} ${version}")
     } catch (Exception e) {
       // Attempt to purge failed releases
       purgeRelease(release)
