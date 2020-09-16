@@ -475,7 +475,7 @@ class PipelineStageTest extends GroovyTestCase {
     mockWorkflow.demand.checkout {  }
 
     mockWorkflow.demand.sh { cmd ->
-      "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chnod +x deployment-charts/.git/hooks/commit-msg"
+      "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg"
     }
 
     mockRunner.demand.updateChart { repo, chart, version, environments ->
