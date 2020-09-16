@@ -32,4 +32,20 @@ class PatchSetTest extends GroovyTestCase {
     assert scm.userRemoteConfigs[0].refspec == "refs/zuul/master/Zfoo"
     assert scm.branches[0].name == "foosha"
   }
+
+  void testGetSCM_useCredentials() {
+    def patchset = new PatchSet(
+      commit: "foosha",
+      project: "foo/project",
+      ref: "refs/zuul/master/Zfoo",
+      remote: new URI("ssh://foo.server:123/foo/project"),
+    )
+
+    def scm = patchset.getSCM([credentialsID: "gerrit.pipelinebot"])
+
+    assert scm.userRemoteConfigs[0].url == "ssh://foo.server:123/foo/project"
+    assert scm.userRemoteConfigs[0].refspec == "refs/zuul/master/Zfoo"
+    assert scm.userRemoteConfigs[0].credentialsId == "gerrit.pipelinebot"
+    assert scm.branches[0].name == "foosha"
+  }
 }

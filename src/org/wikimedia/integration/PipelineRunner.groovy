@@ -249,13 +249,11 @@ class PipelineRunner implements Serializable {
     nameAndTag
   }
 
-  void updateChart(String repo, String chart, String version, List environments) {
+  void updateChart(String chart, String version, List environments) {
     def promoteSubject = "${chart}: pipeline bot promote"
     def promoteMessage = "Promote ${chart} to version ${version}"
     def buildMessage = "Job: ${workflowScript.env.JOB_NAME} " +
       "Build: ${workflowScript.env.BUILD_NUMBER}"
-    def gitPush = 'git push https://${GIT_USERNAME}:${GIT_PASSWORD}@' + repo +
-      " HEAD:refs/for/master%topic=pipeline-promote"
     def environmentsString = ""
     def branchName = randomAlphanum(8)
 
@@ -266,20 +264,9 @@ class PipelineRunner implements Serializable {
       |./update_version/update_version.py -s ${arg(chart)} -v ${arg(version)} ${environmentsString}
       |git add -A
       |git commit -m ${arg(promoteSubject)} -m ${arg(promoteMessage)} -m ${arg(buildMessage)}
-    |""".stripMargin())
-
-    workflowScript.withCredentials(
-      [[
-        $class: 'UsernamePasswordMultiBinding',
-        credentialsId: 'gerrit.pipelinebot',
-        passwordVariable: 'GIT_PASSWORD',
-        usernameVariable: 'GIT_USERNAME'
-      ]]
-    ) { workflowScript.sh("""
-      |${gitPush}
+      |git push origin HEAD:refs/for/master%topic=pipeline-promote
       |git checkout master
-      |""".stripMargin())
-    }
+    |""".stripMargin())
   }
 
   /**

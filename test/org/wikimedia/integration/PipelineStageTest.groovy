@@ -472,19 +472,23 @@ class PipelineStageTest extends GroovyTestCase {
       }
     ])
 
+    mockWorkflow.demand.sh { cmd ->
+      "git config credential.helper cache"
+    }
+
     mockWorkflow.demand.checkout {  }
 
     mockWorkflow.demand.sh { cmd ->
       "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg"
     }
 
-    mockRunner.demand.updateChart { repo, chart, version, environments ->
+    mockRunner.demand.updateChart { chart, version, environments ->
       assert chart == 'foochart'
       assert version == 'fooversion'
       assert environments == []
     }
 
-    mockRunner.demand.updateChart { repo, chart, version, environments ->
+    mockRunner.demand.updateChart { chart, version, environments ->
       assert chart == 'foochart2'
       assert version == 'fooversion'
       assert environments == []

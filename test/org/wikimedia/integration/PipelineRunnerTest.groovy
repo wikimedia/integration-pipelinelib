@@ -384,23 +384,15 @@ class PipelineRunnerTest extends GroovyTestCase {
           |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' 
           |git add -A
           |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+          |git push origin HEAD:refs/for/master%topic=pipeline-promote
+          |git checkout master
           |""".stripMargin()
-      }
-
-      mockWorkflow.demand.withCredentials { list, Closure c ->
-        mockWorkflow.demand.sh { cmd ->
-          assert cmd == '''
-            |git push https://${GIT_USERNAME}:${GIT_PASSWORD}@fooRepo HEAD:refs/for/master%topic=pipeline-promote
-            |git checkout master
-            |'''.stripMargin()
-        }
-        c()
       }
 
       mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.updateChart("fooRepo", "fooChart", "fooVersion", [])
+      runner.updateChart("fooChart", "fooVersion", [])
     }
   }
 
@@ -421,23 +413,15 @@ class PipelineRunnerTest extends GroovyTestCase {
         |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' -e 'fooEnv'
         |git add -A
         |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+        |git push origin HEAD:refs/for/master%topic=pipeline-promote
+        |git checkout master
         |""".stripMargin()
-    }
-
-    mockWorkflow.demand.withCredentials { list, Closure c ->
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == '''
-          |git push https://${GIT_USERNAME}:${GIT_PASSWORD}@fooRepo HEAD:refs/for/master%topic=pipeline-promote
-          |git checkout master
-          |'''.stripMargin()
-      }
-      c()
     }
 
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.updateChart("fooRepo", "fooChart", "fooVersion", ["fooEnv"])
+      runner.updateChart("fooChart", "fooVersion", ["fooEnv"])
     }
   }
 

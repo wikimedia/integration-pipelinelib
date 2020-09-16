@@ -47,11 +47,26 @@ class PatchSet implements Serializable {
     )
   }
 
+  private List generateRemoteConfigs(credentialsID) {
+    if (credentialsID) {
+      return [[
+        url: remote.toString(),
+        refspec: ref,
+        credentialsId: credentialsID
+      ]]
+    }
+
+    return [[
+      url: remote.toString(),
+      refspec: ref,
+    ]]
+  }
+
   /**
    * Returns an SCM mapping that the Jenkins `checkout` function can use to
    * clone the project repo and check out the patch set.
    */
-  Map getSCM(target) {
+  Map getSCM(Map options = [:]) {
 
     def extensions = [
       [$class: 'WipeWorkspace'],
@@ -59,21 +74,18 @@ class PatchSet implements Serializable {
       [$class: 'SubmoduleOption', recursiveSubmodules: true],
     ]
 
-    if (target) {
+    if (options.target) {
       extensions.add(
         [
           $class: 'RelativeTargetDirectory',
-          relativeTargetDir: target + '/'
+          relativeTargetDir: options.target + '/'
         ]
       )
     }
 
     return [
       $class: 'GitSCM',
-      userRemoteConfigs: [[
-        url: remote.toString(),
-        refspec: ref,
-      ]],
+      userRemoteConfigs: generateRemoteConfigs(options.credentialsID),
       branches: [[
         name: commit,
       ]],
