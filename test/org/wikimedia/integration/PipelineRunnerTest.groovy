@@ -370,33 +370,32 @@ class PipelineRunnerTest extends GroovyTestCase {
   void testUpdateChart() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
-      def mockEnv = [
-        JOB_NAME: "fooJob",
-        BUILD_NUMBER: "1234",
-      ]
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' "
+    }
 
-      mockWorkflow.demand.getEnv { mockEnv }
-      mockWorkflow.demand.getEnv { mockEnv }
-
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == """\
-          |git checkout -b 'randomfoo'
-          |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' 
-          |git add -A
-          |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
-          |git push origin HEAD:refs/for/master%topic=pipeline-promote
-          |git checkout master
-          |""".stripMargin()
-      }
-
-      mockWorkflow.use {
+    mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
       runner.updateChart("fooChart", "fooVersion", [])
-    }
+    }    
   }
 
-  void testUpdateChart_withEnvs(){
+  void testUpdateChart_withEnvs() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' -e 'fooEnv' -e 'barEnv'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.updateChart("fooChart", "fooVersion", ["fooEnv", "barEnv"])
+    }    
+  }
+
+  void testUpdateCharts() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     def mockEnv = [
@@ -408,20 +407,55 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.demand.getEnv { mockEnv }
 
     mockWorkflow.demand.sh { cmd ->
+      assert cmd == "git checkout -b 'randomfoo'"
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' "
+    }
+
+    mockWorkflow.demand.sh { cmd ->
       assert cmd == """\
-        |git checkout -b 'randomfoo'
-        |./update_version/update_version.py -s 'fooChart' -v 'fooVersion' -e 'fooEnv'
         |git add -A
+        |git config user.email tcipriani+pipelinebot@wikimedia.org
+        |git config user.name PipelineBot
         |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+      """.stripMargin()
+    }
+
+    mockWorkflow.demand.withCredentials { list, Closure c ->
+      c()
+    }
+
+    mockWorkflow.demand.sh{ cmd ->
+      assert cmd == '''\
+        |set +x
+        |git config credential.username ${GIT_USERNAME}
+        |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
+        |set -x
         |git push origin HEAD:refs/for/master%topic=pipeline-promote
-        |git checkout master
-        |""".stripMargin()
+      |'''.stripMargin()
+    }
+
+    mockWorkflow.demand.sh{ cmd -> 
+      assert cmd == """\
+        |set +e
+        |git config --unset credential.helper 
+        |git config --unset credential.username
+        |set -e
+      """.stripMargin()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "git checkout master"
     }
 
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.updateChart("fooChart", "fooVersion", ["fooEnv"])
+      runner.updateCharts([
+        [chart: "fooChart", version: "fooVersion", environments: []]
+      ])
     }
   }
 

@@ -249,24 +249,82 @@ class PipelineRunner implements Serializable {
     nameAndTag
   }
 
-  void updateChart(String chart, String version, List environments) {
-    def promoteSubject = "${chart}: pipeline bot promote"
-    def promoteMessage = "Promote ${chart} to version ${version}"
-    def buildMessage = "Job: ${workflowScript.env.JOB_NAME} " +
-      "Build: ${workflowScript.env.BUILD_NUMBER}"
-    def environmentsString = ""
-    def branchName = randomAlphanum(8)
+  void updateChart(chart, version, environments) {
+    def environmentsString = environments.collect { "-e " + arg(it) }.join(" ")
 
-    environmentsString = environments.collect { "-e " + arg(it) }.join(" ")
+    workflowScript.sh("./update_version/update_version.py -s ${arg(chart)} -v ${arg(version)} ${environmentsString}")
+  }
+
+  void commitAndPush(Map options = [:]) {
+    def topicString = ""
+    def commitMessages = ""
+
+    if (options.topic) {
+      topicString = '%topic=' + options.topic
+    }
+
+    if (options.commitMessages) {
+      commitMessages = options.commitMessages
+    }
 
     workflowScript.sh("""\
-      |git checkout -b ${arg(branchName)}
-      |./update_version/update_version.py -s ${arg(chart)} -v ${arg(version)} ${environmentsString}
-      |git add -A
-      |git commit -m ${arg(promoteSubject)} -m ${arg(promoteMessage)} -m ${arg(buildMessage)}
-      |git push origin HEAD:refs/for/master%topic=pipeline-promote
-      |git checkout master
-    |""".stripMargin())
+        |git add -A
+        |git config user.email tcipriani+pipelinebot@wikimedia.org
+        |git config user.name PipelineBot
+        |git commit ${commitMessages}
+      """.stripMargin())
+    
+    try {
+      workflowScript.withCredentials(
+        [[
+          $class: 'UsernamePasswordMultiBinding',
+          credentialsId: 'gerrit.pipelinebot',
+          passwordVariable: 'GIT_PASSWORD',
+          usernameVariable: 'GIT_USERNAME'
+        ]]
+      ) { workflowScript.sh(
+        sprintf('''\
+          |set +x
+          |git config credential.username ${GIT_USERNAME}
+          |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
+          |set -x
+          |git push origin HEAD:refs/for/master%s
+        |'''.stripMargin(), topicString)
+      )}
+    } catch (Exception e) {
+      workflowScript.sh("Error: ${e}")
+      throw e
+    } finally {
+      workflowScript.sh("""\
+        |set +e
+        |git config --unset credential.helper 
+        |git config --unset credential.username
+        |set -e
+      """.stripMargin())
+    }
+  }
+
+  void updateCharts(List promote) {
+    def buildMessage = "Job: ${workflowScript.env.JOB_NAME} " +
+      "Build: ${workflowScript.env.BUILD_NUMBER}"
+
+    promote.each {
+      def chart = it.chart
+      def version = it.version
+      def environments = it.environments
+      def branchName = randomAlphanum(8)
+      def promoteSubject = "${chart}: pipeline bot promote"
+      def promoteMessage = "Promote ${chart} to version ${version}"
+      def commitMessages = "-m ${arg(promoteSubject)} -m ${arg(promoteMessage)} -m ${arg(buildMessage)}"
+
+      workflowScript.sh("git checkout -b ${arg(branchName)}")
+      updateChart(chart, version, environments)
+      commitAndPush([
+        commitMessages: commitMessages, 
+        topic: 'pipeline-promote'
+      ])
+      workflowScript.sh("git checkout master")
+    }
   }
 
   /**

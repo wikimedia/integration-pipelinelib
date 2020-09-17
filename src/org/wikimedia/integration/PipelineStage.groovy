@@ -531,26 +531,17 @@ class PipelineStage implements Serializable {
   void promote(ws, runner) {
     //only promote if an image is published
     if (config.promote) {
-
-      ws.sh('git config credential.helper cache')
-
       //check out the repo
       ws.checkout(new PatchSet(
         commit: "master",
         ref: "refs/heads/master",
         remote: CHARTSREPO
-      ).getSCM([target: 'deployment-charts', credentialsID: 'gerrit.pipelinebot']))
+      ).getSCM([target: 'deployment-charts']))
 
-      ws.sh(
-          "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg"
-      )
+      ws.sh("curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg")
 
-      config.promote.each {
-        def chart = context % it.chart
-        def version = context % it.version
-        def environments = context % it.environments
-
-        runner.updateChart(chart, version, environments)
+      ws.dir('deployment-charts') {
+        runner.updateCharts(context % config.promote)
       }
     }
   }
