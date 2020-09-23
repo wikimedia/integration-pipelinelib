@@ -256,6 +256,10 @@ class PipelineStage implements Serializable {
       }
     }
 
+    if (config.promote) {
+      labels.add("chartPromote")
+    }
+
     labels
   }
 

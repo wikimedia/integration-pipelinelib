@@ -117,6 +117,19 @@ class PipelineTest extends GroovyTestCase {
     assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "dockerPublish"] as Set
   }
 
+  void testGetDefaultNodeLabels_promoteImage() {
+    def pipeline = new Pipeline("foo", [
+      stages: [
+        [
+          name: "foo",
+          promote: true
+        ],
+      ],
+    ])
+
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "chartPromote"] as Set
+  }
+
   void testRunner() {
     def pipeline = new Pipeline("foo", [
       directory: "src/foo/",
