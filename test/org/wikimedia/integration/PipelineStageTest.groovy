@@ -82,7 +82,7 @@ class PipelineStageTest extends GroovyTestCase {
     assert PipelineStage.defaultConfig(cfg) == [
       promote: [
         [
-          chart: '${setup.project}',
+          chart: '${setup.projectShortName}',
 
           environments: [],
 
@@ -102,7 +102,7 @@ class PipelineStageTest extends GroovyTestCase {
     assert PipelineStage.defaultConfig(cfg) == [
       deploy: [
         chart: [
-          name: '${setup.project}',
+          name: '${setup.projectShortName}',
           version: "",
         ],
 
@@ -135,7 +135,7 @@ class PipelineStageTest extends GroovyTestCase {
     assert PipelineStage.defaultConfig(cfg) == [
       deploy: [
         chart: [
-          name: '${setup.project}',
+          name: '${setup.projectShortName}',
           version: "",
         ],
         image: "fooimage",
