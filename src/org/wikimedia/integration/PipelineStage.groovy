@@ -159,7 +159,7 @@ class PipelineStage implements Serializable {
       if (dcfg.promote == true) {
         dcfg.promote = [
           [
-            chart: "\${${SETUP}.project}",
+            chart: "\${${SETUP}.projectShortName}",
             environments: [],
             version: '${.imageTag}',
           ]
@@ -168,7 +168,7 @@ class PipelineStage implements Serializable {
         dcfg.promote = dcfg.promote.clone()
 
         dcfg.promote.each{
-            it.chart = it.chart ?: "\${${SETUP}.project}"
+            it.chart = it.chart ?: "\${${SETUP}.projectShortName}"
             it.environments = it.environments ?: []
             it.version = it.version ?: '${.imageTag}'
         }
@@ -189,7 +189,7 @@ class PipelineStage implements Serializable {
         dcfg.deploy.chart = [:]
       }
 
-      dcfg.deploy.chart.name =  dcfg.deploy.chart.name ?: "\${${SETUP}.project}"
+      dcfg.deploy.chart.name =  dcfg.deploy.chart.name ?: "\${${SETUP}.projectShortName}"
       dcfg.deploy.chart.version = dcfg.deploy.chart.version ?: ""
     }
 
@@ -274,6 +274,11 @@ class PipelineStage implements Serializable {
    * <dd>ZUUL_PROJECT parameter value if getting a patchset from Zuul.</dd>
    * <dd>Jenkins JOB_NAME value otherwise.</dd>
    *
+   * <dl>
+   * <dt><code>${setup.projectShortName}</code></dt>
+   * <dd>The string after the last forward slash in the ZUUL_PROJECT parameter if getting a patchset from Zuul.</dd>
+   * <dd>The string after the last forward slash in the Jenkins JOB_NAME value otherwise.</dd>
+   *
    * <dt><code>${setup.timestamp}</code></dt>
    * <dd>Timestamp at the start of pipeline execution. Used in image tags, etc.</dd>
    *
@@ -297,9 +302,14 @@ class PipelineStage implements Serializable {
       ws.checkout(patchset.getSCM())
       context["project"] = patchset.project.replaceAll('/', '-')
       imageLabels["zuul.commit"] = patchset.commit
+
+      def splitProject = patchset.project.split('/')
+      context["projectShortName"] = splitProject[splitProject.size() - 1]
+
     } else {
       ws.checkout(ws.scm)
       context["project"] = ws.env.JOB_NAME
+      context["projectShortName"] = ws.env.JOB_NAME
     }
 
     imageLabels["ci.project"] = context['project']
