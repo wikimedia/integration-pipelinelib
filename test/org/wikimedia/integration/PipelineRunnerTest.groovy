@@ -342,8 +342,11 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == "docker tag 'fooID' 'internal.example/foorepo/fooname:footag' && " +
-                    "sudo /usr/local/bin/docker-pusher 'internal.example/foorepo/fooname:footag'"
+      assert cmd == "docker tag 'fooID' 'internal.example/foorepo/fooname:footag'"
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "sudo /usr/local/bin/docker-pusher 'internal.example/foorepo/fooname:footag'"
     }
 
     mockWorkflow.use {
@@ -364,6 +367,61 @@ class PipelineRunnerTest extends GroovyTestCase {
       shouldFail(AssertionError) {
         runner.registerAs("fooID", "foo/name", "footag")
       }
+    }
+  }
+
+  void testRegisterAs_supportsRegistryPushMethod() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker tag 'fooID' 'registry.example/foorepo/fooname:footag'"
+    }
+
+    mockWorkflow.demand.sh { args ->
+      assert args.script == "mktemp -d"
+      assert args.returnStdout == true
+
+      "/tmp/foo-dir"
+    }
+
+    mockWorkflow.demand.writeJSON { args ->
+      assert args.file == "/tmp/foo-dir/config.json"
+      assert args.json == [ "credHelpers": [ "registry.example": "environment" ] ]
+    }
+
+    mockWorkflow.demand.withEnv { envs, closure ->
+      assert envs == ["DOCKER_CREDENTIAL_HOST='registry.example'"]
+      closure()
+    }
+
+    mockWorkflow.demand.withCredentials { creds, closure ->
+      assert creds == [[$class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'foo-credential-id',
+                        passwordVariable: 'DOCKER_CREDENTIAL_USERNAME',
+                        usernameVariable: 'DOCKER_CREDENTIAL_PASSWORD']]
+
+      closure()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker --config '/tmp/foo-dir' push 'registry.example/foorepo/fooname:footag'"
+    }
+
+    mockWorkflow.demand.dir { tempDir, closure ->
+      assert tempDir == "/tmp/foo-dir"
+      closure()
+    }
+
+    mockWorkflow.demand.deleteDir { }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+                                      registry: 'registry.example',
+                                      repository: 'foorepo',
+                                      registryPushMethod: 'docker-push',
+                                      registryCredential: 'foo-credential-id')
+
+      runner.registerAs("fooID", "fooname", "footag")
     }
   }
 

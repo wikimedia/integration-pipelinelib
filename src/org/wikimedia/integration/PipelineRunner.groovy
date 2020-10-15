@@ -64,9 +64,23 @@ class PipelineRunner implements Serializable {
   def registry = "docker-registry.wikimedia.org"
 
   /**
+   * Jenkins credential used to authenticate against the configured registry.
+   * Only used when {@link registryPushMethod} is set to "docker-push".
+   */
+  def registryCredential = null
+
+  /**
    * Alternative Docker registry host used only when registering images.
    */
   def registryInternal = "docker-registry.discovery.wmnet"
+
+  /**
+   * Method of pushing remote images to the configured registry. Either
+   * "wmf-pusher" to use the "docker-pusher" wrapper script which uses
+   * hardcoded and protected credentials or "docker-push" which uses the
+   * standard Docker CLI but requires a {@link registryCredential} to be set.
+   */
+  def registryPushMethod = "wmf-pusher"
 
   /**
    * Default Docker registry repository used for tagging and registering images.
@@ -228,8 +242,11 @@ class PipelineRunner implements Serializable {
    * Name and push an image specified by the given image ID to the WMF Docker
    * registry.
    *
-   * The repo name is enforced as "docker-registry.wikimedia.org", and the
-   * remote path prefix is enforced as "/wikimedia/".
+   * By default, the repo name is enforced as "docker-registry.wikimedia.org",
+   * and the remote path prefix is enforced as "/wikimedia/". These can be
+   * changed by setting {@link registry} and {@link repository}. The method
+   * and credential used to push to the registry can be configured by setting
+   * {@link registryPushMethod} and {@link registryCredential}.
    *
    * {@code
    * // Pushes built image to docker-registry.wikimedia.org/wikimedia/mathoid:build-123
@@ -241,10 +258,38 @@ class PipelineRunner implements Serializable {
    * @param tag Remote tag to use for the image.
    */
   String registerAs(String imageID, String name, String tag) {
-    def nameAndTag = qualifyRegistryPath(name, registryInternal) + ":" + tag
+    def pushRegistry = registryPushMethod == "wmf-pusher" ? registryInternal : registry
+    def nameAndTag = qualifyRegistryPath(name, pushRegistry) + ":" + tag
 
-    workflowScript.sh("docker tag ${arg(imageID)} ${arg(nameAndTag)} && " +
-                      "sudo /usr/local/bin/docker-pusher ${arg(nameAndTag)}")
+    workflowScript.sh("docker tag ${arg(imageID)} ${arg(nameAndTag)}")
+
+    switch (registryPushMethod) {
+      case "wmf-pusher":
+        workflowScript.sh("sudo /usr/local/bin/docker-pusher ${arg(nameAndTag)}")
+        break
+      case "docker-push":
+        withTemporaryDirectory() { tempDir ->
+          workflowScript.writeJSON(
+            file: [tempDir, "config.json"].join("/"),
+            json: [ credHelpers: [ (pushRegistry): "environment" ] ])
+
+          workflowScript.withEnv(["DOCKER_CREDENTIAL_HOST=${arg(registry)}"]) {
+            workflowScript.withCredentials(
+              [[
+                $class: 'UsernamePasswordMultiBinding',
+                credentialsId: registryCredential,
+                passwordVariable: 'DOCKER_CREDENTIAL_USERNAME',
+                usernameVariable: 'DOCKER_CREDENTIAL_PASSWORD'
+              ]]
+            ) {
+              workflowScript.sh("docker --config ${arg(tempDir)} push ${arg(nameAndTag)}")
+            }
+          }
+        }
+        break
+      default:
+        throw new RuntimeException("unknown registry push method '${registryPushMethod}'")
+    }
 
     nameAndTag
   }
@@ -424,6 +469,22 @@ class PipelineRunner implements Serializable {
   }
 
   private
+
+  /**
+   * Creates a temporary directory, calls the given closure with the directory
+   * as an argument, and ensures the directory is removed.
+   */
+  void withTemporaryDirectory(Closure c) {
+    def tempDir = workflowScript.sh(returnStdout: true, script: "mktemp -d")
+
+    try {
+      c(tempDir)
+    } finally {
+      workflowScript.dir(tempDir) {
+        workflowScript.deleteDir()
+      }
+    }
+  }
 
   /**
    * Execute a helm command, specifying the right tiller namespace.
