@@ -62,21 +62,20 @@ import org.wikimedia.integration.PipelineRunner
 class Pipeline implements Serializable {
   String name
   String blubberfile
-  String deploymentChartsRepo
   String directory
-  String dockerRegistry
-  String dockerRegistryInternal
 
   private Map stagesConfig
+  private Map runnerOverrides
   private List<List> execution
 
   /**
    * Constructs a new pipeline with the given name and configuration.
    */
-  Pipeline(String pipelineName, Map config) {
+  Pipeline(String pipelineName, Map config, Map overrides = [:]) {
     name = pipelineName
     blubberfile = config.blubberfile ?: "${name}/blubber.yaml"
     directory = config.directory ?: "."
+    runnerOverrides = overrides
 
     stagesConfig = config.stages.collectEntries{
       [(it.name): PipelineStage.defaultConfig(it)]
@@ -125,15 +124,7 @@ class Pipeline implements Serializable {
       kubeConfig: "/etc/kubernetes/ci-staging.config",
     ]
 
-    if (dockerRegistry) {
-      settings["registry"] = dockerRegistry
-    }
-
-    if (dockerRegistryInternal) {
-      settings["registryInternal"] = dockerRegistryInternal
-    }
-
-    def runner = new PipelineRunner(settings, ws)
+    def runner = new PipelineRunner(settings + runnerOverrides, ws)
 
     // make the PipelineRunner configPath relative to the pipeline's directory
     def prefix = "../" * directory.split('/').count { !(it in ["", "."]) }

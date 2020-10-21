@@ -6,13 +6,29 @@ import org.wikimedia.integration.Pipeline
 import org.wikimedia.integration.PipelineStage
 
 class PipelineBuilder implements Serializable {
+  /**
+   * Path to the project's pipeline configuration file.
+   */
   String configPath
 
   /**
-   * Constructs a new {@PipelineBuilder} from the given YAML configuration.
+   * Additional {@link PipelineRunner} properties to set.
    */
-  PipelineBuilder(String pipelineConfigPath) {
+  Map runnerOverrides
+
+  /**
+   * Constructs a new {@PipelineBuilder} from the given YAML configuration.
+   *
+   * @param overrides Named parameters used to override properties of the
+   *                  {@link PipelineRunner} during execution. See
+   *                  {@link runnerOverrides}.
+   * @param pipelineConfigPath Path to the pipeline configuration relative to
+   *                           the project's root directory.
+   *
+   */
+  PipelineBuilder(Map overrides = [:], String pipelineConfigPath) {
     configPath = pipelineConfigPath
+    runnerOverrides = overrides
   }
 
   /**
@@ -26,6 +42,7 @@ class PipelineBuilder implements Serializable {
    *
    * @param ws Jenkins Workflow Script (`this` when writing a Jenkinsfile)
    * @param pipelineName Only build/run the given pipeline.
+   * @param runnerOverrides Additional {@link PipelineRunner} properties to set.
    */
   void build(ws, pipelineName = "") {
     def config
@@ -103,7 +120,7 @@ class PipelineBuilder implements Serializable {
    */
   List pipelines(cfg) {
     cfg.pipelines.collect { pname, pconfig ->
-      def pline = new Pipeline(pname, pconfig)
+      def pline = new Pipeline(pname, pconfig, runnerOverrides)
       pline.validate()
       pline
     }

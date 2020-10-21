@@ -152,15 +152,19 @@ class PipelineTest extends GroovyTestCase {
     assert pipeline.runner().configPath == ".pipeline"
   }
 
-  void testRunner_customRegistries() {
-    def pipeline = new Pipeline("foo", [stages: []])
-    pipeline.dockerRegistry = "registry.example"
-    pipeline.dockerRegistryInternal = "internal.example"
+  void testRunner_withOverrides() {
+    def pipeline = new Pipeline(
+      "foo",
+      [
+        directory: ".",
+        stages: []
+      ],
+      [
+        registry: "foo.example",
+      ]
+    )
 
-    def runner = pipeline.runner()
-
-    assert runner.registry == "registry.example"
-    assert runner.registryInternal == "internal.example"
+    assert pipeline.runner().registry == "foo.example"
   }
 
   void testValidate_setupReserved() {
