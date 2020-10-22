@@ -65,14 +65,56 @@ class PatchSet implements Serializable {
   /**
    * Returns an SCM mapping that the Jenkins `checkout` function can use to
    * clone the project repo and check out the patch set.
+   *
+   * @param options Various checkout options.
+   * <dl>
+   * <dt><code>credentialsID</code></dt>
+   * <dd>ID of a Jenkins credentials to supply to the remote server for remote
+   * operations. Default is not to supply credentials.</dd>
+   *
+   * <dt><code>depth</code></dt>
+   * <dd>Depth of the desired history when shallow is true. Default is
+   * 20.</dd>
+   *
+   * <dt><code>shallow</code></dt>
+   * <dd>Whether to do a shallow clone of the repo and its submodules.
+   * Defaults to <code>true</code>.</dd>
+   *
+   * <dt><code>submodules</code></dt>
+   * <dd>Whether to (recursively) update submodules after checkout. Defaults
+   * to <code>true</code>.</dd>
+   *
+   * <dt><code>target</code></dt>
+   * <dd>Directory in which to clone and checkout the working directory.
+   * Defaults to the current directory.</dd>
+   * </dl>
    */
   Map getSCM(Map options = [:]) {
+    def depth = options.get('depth', 20)
+    def shallow = options.get('shallow', true)
 
     def extensions = [
       [$class: 'WipeWorkspace'],
-      [$class: 'CloneOption', shallow: true],
-      [$class: 'SubmoduleOption', recursiveSubmodules: true],
+      [$class: 'CloneOption', depth: depth, shallow: shallow],
     ]
+
+    if (options.get('submodules', true)) {
+      extensions.add(
+        [
+          $class: 'SubmoduleOption',
+          depth: depth,
+          shallow: shallow,
+          recursiveSubmodules: true,
+        ]
+      )
+    } else {
+      extensions.add(
+        [
+          $class: 'SubmoduleOption',
+          disableSubmodules: true,
+        ]
+      )
+    }
 
     if (options.target) {
       extensions.add(

@@ -50,7 +50,7 @@ class PipelineBuilder implements Serializable {
     ws.node(Pipeline.baseNodeLabel) {
       ws.stage("configure") {
         if (ws.params.ZUUL_REF) {
-          ws.checkout(PatchSet.fromZuul(ws.params).getSCM())
+          ws.checkout(PatchSet.fromZuul(ws.params).getSCM(submodules: false, depth: 1))
         } else {
           ws.checkout(ws.scm)
         }

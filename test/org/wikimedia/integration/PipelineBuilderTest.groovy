@@ -52,8 +52,8 @@ class PipelineBuilderTest extends GroovyTestCase {
           branches: [ [ name: "foo-commit" ] ],
           extensions: [
             [ $class: "WipeWorkspace" ],
-            [ $class: "CloneOption", shallow: true],
-            [ $class: "SubmoduleOption", recursiveSubmodules: true ],
+            [ $class: "CloneOption", shallow: true, depth: 1 ],
+            [ $class: "SubmoduleOption", disableSubmodules: true ],
           ]
         ]
       }

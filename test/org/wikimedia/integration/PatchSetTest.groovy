@@ -33,6 +33,98 @@ class PatchSetTest extends GroovyTestCase {
     assert scm.branches[0].name == "foosha"
   }
 
+  void testGetSCM_noSubmodules() {
+    def patchset = new PatchSet(
+      commit: "foosha",
+      project: "foo/project",
+      ref: "refs/zuul/master/Zfoo",
+      remote: new URI("ssh://foo.server:123/foo/project"),
+    )
+
+    def scm = patchset.getSCM(submodules: false)
+
+    assert scm.extensions.contains(
+      [
+        $class: 'SubmoduleOption',
+        disableSubmodules: true,
+      ]
+    )
+  }
+
+  void testGetSCM_shallowDefaultDepth() {
+    def patchset = new PatchSet(
+      commit: "foosha",
+      project: "foo/project",
+      ref: "refs/zuul/master/Zfoo",
+      remote: new URI("ssh://foo.server:123/foo/project"),
+    )
+
+    def scm = patchset.getSCM(shallow: true)
+
+    assert scm.extensions.contains(
+      [
+        $class: 'CloneOption',
+        depth: 20,
+        shallow: true,
+      ]
+    )
+
+    assert scm.extensions.contains(
+      [
+        $class: 'SubmoduleOption',
+        depth: 20,
+        shallow: true,
+        recursiveSubmodules: true,
+      ]
+    )
+  }
+
+  void testGetSCM_shallowDepth() {
+    def patchset = new PatchSet(
+      commit: "foosha",
+      project: "foo/project",
+      ref: "refs/zuul/master/Zfoo",
+      remote: new URI("ssh://foo.server:123/foo/project"),
+    )
+
+    def scm = patchset.getSCM(shallow: true, depth: 1)
+
+    assert scm.extensions.contains(
+      [
+        $class: 'CloneOption',
+        depth: 1,
+        shallow: true,
+      ]
+    )
+
+    assert scm.extensions.contains(
+      [
+        $class: 'SubmoduleOption',
+        depth: 1,
+        shallow: true,
+        recursiveSubmodules: true,
+      ]
+    )
+  }
+
+  void testGetSCM_target() {
+    def patchset = new PatchSet(
+      commit: "foosha",
+      project: "foo/project",
+      ref: "refs/zuul/master/Zfoo",
+      remote: new URI("ssh://foo.server:123/foo/project"),
+    )
+
+    def scm = patchset.getSCM(target: "foo/target/dir")
+
+    assert scm.extensions.contains(
+      [
+        $class: 'RelativeTargetDirectory',
+        relativeTargetDir: "foo/target/dir/",
+      ]
+    )
+  }
+
   void testGetSCM_useCredentials() {
     def patchset = new PatchSet(
       commit: "foosha",
