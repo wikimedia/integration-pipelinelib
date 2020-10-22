@@ -64,6 +64,7 @@ class Pipeline implements Serializable {
   String blubberfile
   String directory
 
+  private static String baseNodeLabel = "pipelinelib"
   private Map stagesConfig
   private Map runnerOverrides
   private List<List> execution
@@ -89,7 +90,7 @@ class Pipeline implements Serializable {
    * function correctly.
    */
   Set getRequiredNodeLabels() {
-    def labels = ['pipelinelib'] as Set
+    def labels = [baseNodeLabel] as Set
 
     for (def nodes in stack()) {
       for (def node in nodes) {

@@ -47,7 +47,7 @@ class PipelineBuilder implements Serializable {
   void build(ws, pipelineName = "") {
     def config
 
-    ws.node("blubber") {
+    ws.node(Pipeline.baseNodeLabel) {
       ws.stage("configure") {
         if (ws.params.ZUUL_REF) {
           ws.checkout(PatchSet.fromZuul(ws.params).getSCM())
