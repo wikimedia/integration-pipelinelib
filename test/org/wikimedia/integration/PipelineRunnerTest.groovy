@@ -612,7 +612,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
-      assert list == [[$class:'StringBinding', credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      assert list == [[$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY']]
       mockWorkflow.demand.sh { cmd ->
         assert cmd == '''
           set +x
@@ -626,7 +626,20 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [:], [sonarid:'SONAR_API_KEY'])
+      runner.run("foo", [], [:], [SONAR_API_KEY:'SONAR_API_KEY'])
+    }
+  }
+
+  //TODO: update or remove when we figure out a better way to limit which creds are used
+  void testRun_withCreds_OnlyAcceptsSonar() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      shouldFail(RuntimeException) {
+        runner.run("foo", [], [:], [sonarid:'SONAR_API_KEY'])
+      }
     }
   }
 
@@ -645,7 +658,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
-      assert list == [[$class:'StringBinding', credentialsId:'sonarid', variable:'SONAR_API_KEY']]
+      assert list == [[$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY']]
       mockWorkflow.demand.sh { cmd ->
         assert cmd == '''
           set +x
@@ -659,7 +672,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [foo: "bar"], [sonarid:'SONAR_API_KEY'])
+      runner.run("foo", [], [foo: "bar"], [SONAR_API_KEY:'SONAR_API_KEY'])
     }
   }
 }

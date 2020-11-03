@@ -429,7 +429,12 @@ class PipelineRunner implements Serializable {
    * @param arguments Entry-point arguments.
    */
   void run(String imageID, List arguments = [], Map envVars = [:], Map creds = [:]) {
-    def textCredsList = creds.collect{ k, v -> [$class: 'StringBinding', credentialsId: k, variable: v]}
+    // TODO: figure out how to restrict credentials a better way
+    def textCredsList = creds.findResults{ k, v -> if (k == 'SONAR_API_KEY') {
+      return [$class: 'StringBinding', credentialsId: k, variable: v]
+    } else {
+      throw new RuntimeException("Invalid Credential: '${k}'. Allowed credentials: SONAR_API_KEY")
+    }}
     def argsString = args([imageID] + arguments)
     def credsWithVars = creds.collectEntries { k, v -> [v, '\${' + v + '}'] }
     def runString = sprintf('exec docker run --rm %ssha256:%s', envs(envVars + credsWithVars), argsString)
