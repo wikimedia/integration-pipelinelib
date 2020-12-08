@@ -1,6 +1,7 @@
 package org.wikimedia.integration
 
 import java.io.FileNotFoundException
+import java.net.URI
 
 import static org.wikimedia.integration.Utility.*
 
@@ -119,12 +120,20 @@ class PipelineRunner implements Serializable {
    *
    * @param variant Image variant name that should be built.
    * @param labels Additional name/value labels to add to the image metadata.
+   * @param context Build context given to `docker build`. Default is "."
+   * (current directory).
+   * @param excludes Files/directories to exclude from build context. This
+   * will be used to overwrite any existing .dockerignore prior to the build.
    */
-  String build(String variant, Map labels = [:]) {
+  String build(String variant, Map labels = [:], URI context = URI.create("."), List excludes = null) {
     def cfg = getConfigFile(blubberConfig)
 
     if (!workflowScript.fileExists(cfg)) {
       throw new FileNotFoundException("failed to build image: no Blubber config found at ${cfg}")
+    }
+
+    if (context.scheme && excludes) {
+      throw new RuntimeException("excludes may only be used with a local build context")
     }
 
     def blubber = new Blubber(workflowScript, cfg, blubberoidURL)
@@ -133,9 +142,33 @@ class PipelineRunner implements Serializable {
     workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
 
     def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
-    def dockerBuild = "docker build --pull --force-rm=true ${labelFlags} --file ${arg(dockerfile)} ."
+    def dockerBuild = "docker build --pull --force-rm=true ${labelFlags} --file ${arg(dockerfile)} ${arg(context)}"
 
-    def output = workflowScript.sh(returnStdout: true, script: dockerBuild)
+    def ignoreFile = ".dockerignore"
+    def ignoreFileBackup
+
+    if (excludes) {
+      workflowScript.dir(context.path) {
+        if (workflowScript.fileExists(ignoreFile)) {
+          ignoreFileBackup = getTempFile("dockerignore.bak.")
+          workflowScript.sh "cp ${arg(ignoreFile)} ${arg(ignoreFileBackup)}"
+        }
+
+        workflowScript.writeFile(text: excludes.join("\n") + "\n", file: ignoreFile)
+      }
+    }
+
+    String output
+
+    try {
+      output = workflowScript.sh(returnStdout: true, script: dockerBuild)
+    } finally {
+      if (ignoreFileBackup) {
+        workflowScript.dir(context.path) {
+          workflowScript.sh "mv ${arg(ignoreFileBackup) ${arg(ignoreFile)}}"
+        }
+      }
+    }
 
     // Return just the image ID from `docker build` output
     output.substring(output.lastIndexOf(" ") + 1).trim()

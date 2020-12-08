@@ -32,6 +32,22 @@ class PipelineStage implements Serializable {
    *
    *   assert PipelineStage.defaultConfig(cfg) == [
    *     name: "foo",
+   *     build: [
+   *       variant: '${.stage}', // builds a variant by the same name
+   *     ],
+   *     run: [
+   *       image: '${.imageID}', // runs the variant built by this stage
+   *       arguments: [],
+   *     ],
+   *   ]
+   * </code></pre>
+   *
+   * @example Shorthand stage config (providing only a stage name)
+   * <pre><code>
+   *   def cfg = [name: "foo"]
+   *
+   *   assert PipelineStage.defaultConfig(cfg) == [
+   *     name: "foo",
    *     build: '${.stage}',     // builds a variant by the same name
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
@@ -94,13 +110,26 @@ class PipelineStage implements Serializable {
     // shorthand with just name is: build and run a variant
     if (cfg.size() == 1 && cfg["name"]) {
       dcfg = cfg + [
-        build: '${.stage}',
+        build: [
+          variant: '${.stage}',
+        ],
         run: [
           image: '${.imageID}',
         ]
       ]
     } else {
       dcfg = cfg.clone()
+    }
+
+    if (dcfg.build) {
+      if (dcfg.build instanceof String || dcfg.build instanceof GString) {
+        dcfg.build = [
+          variant: dcfg.build,
+        ]
+      }
+
+      dcfg.build.variant = dcfg.build.variant ?: '${.stage}'
+      dcfg.build.context = dcfg.build.context ?: '.'
     }
 
     if (dcfg.run) {
@@ -346,7 +375,30 @@ class PipelineStage implements Serializable {
    * <h3>Configuration</h3>
    * <dl>
    * <dt><code>build</code></dt>
-   * <dd>Blubber variant name</dd>
+   * <dd>Blubber variant name and build context options</dd>
+   * <dd>Specifying <code>build: "foo"</code> expands to
+   *   <code>build: { variant: "foo", context: "." }</code></dd>
+   * <dd>
+   *   <dl>
+   *     <dt><code>variant</code></dt>
+   *     <dd>Blubber variant to build</dd>
+   *     <dd>Default: <code>{$.stage}</code> (same as the stage name)</dd>
+   *
+   *     <dt><code>context</code></dt>
+   *     <dd>Build context directory or URL <a
+   *     href="https://docs.docker.com/engine/reference/commandline/build/">supported
+   *     by <code>docker build</code></a></dd>
+   *     <dd>Default: <code>"."</code></dd>
+
+   *     <dt><code>excludes</code></dt>
+   *     <dd>Patterns of files/directories to exclude from the build context.
+   *     Providing this will result in any local <code>.dockerignore</code>
+   *     file being overwritten prior to the build and only has an effect when
+   *     the context is a local directory. Patterns must be <a
+   *     href="https://docs.docker.com/engine/reference/builder/#dockerignore-file">valid
+   *     Docker ignore rules</a>.</dd>
+   *   </dl>
+   * </dd>
    * </dl>
    *
    * <h3>Example</h3>
@@ -356,6 +408,19 @@ class PipelineStage implements Serializable {
    *       build: production
    * </code></pre>
    *
+   * <h3>Example</h3>
+   * <pre><code>
+   *   stages:
+   *     - name: build-main-project
+   *       build:
+   *         variant: build
+   *         excludes: [/src/foo]
+   *     - name: build-subproject
+   *       build:
+   *         variant: build-foo
+   *         context: src/foo
+   * </code></pre>
+   *
    * <h3>Exports</h3>
    * <dl>
    * <dt><code>${[stage].imageID}</code></dt>
@@ -363,7 +428,12 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void build(ws, runner) {
-    def imageID = runner.build(context % config.build, context["setup.imageLabels"])
+    def imageID = runner.build(
+      context % config.build.variant,
+      context["setup.imageLabels"],
+      URI.create(context % config.build.context),
+      context % config.build.excludes
+    )
 
     context["imageID"] = imageID
   }

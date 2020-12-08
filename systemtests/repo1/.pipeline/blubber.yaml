@@ -1,0 +1,7 @@
+version: v4
+base: docker-registry.wikimedia.org/wikimedia-stretch
+
+variants:
+  service1-checkexcludes:
+    copies: [local]
+    entrypoint: [./checkexcludes.sh]

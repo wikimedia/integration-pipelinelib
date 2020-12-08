@@ -53,7 +53,7 @@ systemtest:
 	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
 	$(DOCKER_RUN) -d \
 	  -p 8080:8080 \
-	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  -v /var/run/docker.sock:/var/run/docker.host.sock \
 	  $(DOCKER_TAG)
 
 	@while ! curl -s http://$(JENKINS_HOST):8080/ > /dev/null; do \

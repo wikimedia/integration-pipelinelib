@@ -7,7 +7,7 @@ ARG VERSION
 USER root
 
 # ensure jenkins has access to docker from within docker
-RUN groupadd -g 1001 docker && usermod -aG docker,root jenkins
+RUN groupadd -g 1001 docker && usermod -aG docker jenkins
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
@@ -16,14 +16,21 @@ RUN apt-get update && \
       ca-certificates \
       curl \
       gnupg2 \
+      socat \
+      software-properties-common \
       sudo \
-      software-properties-common && \
+    && \
     ( curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - ) && \
     add-apt-repository \
       "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
     apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
+
+# install a custom entrypoint that can ensure jenkins has access to docker via
+# a socket proxy
+COPY systemtests/jenkins/bin/start-docker-proxy /usr/local/bin/start-docker-proxy
+COPY systemtests/jenkins/bin/entrypoint /usr/local/bin/entrypoint
 
 COPY systemtests/jenkins/bin/stub-script /usr/local/bin/docker-pusher
 COPY systemtests/jenkins/sudoers /etc/sudoers.d/jenkins
@@ -61,3 +68,5 @@ RUN cd /var/lib/git/pipelinelib && \
     git merge -s octopus test-in-docker-$VERSION
 
 USER jenkins
+
+ENTRYPOINT /usr/local/bin/entrypoint

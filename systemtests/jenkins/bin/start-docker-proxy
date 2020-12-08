@@ -1,0 +1,5 @@
+#!/bin/sh
+
+exec socat \
+  UNIX-LISTEN:/var/run/docker.sock,fork,group=docker,mode=770 \
+  UNIX-CONNECT:/var/run/docker.host.sock

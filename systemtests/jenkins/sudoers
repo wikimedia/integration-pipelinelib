@@ -1,1 +1,2 @@
 jenkins ALL=(root) NOPASSWD: /usr/local/bin/docker-pusher
+jenkins ALL=(root) NOPASSWD: /usr/local/bin/start-docker-proxy

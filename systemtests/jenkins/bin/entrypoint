@@ -1,0 +1,4 @@
+#!/bin/sh
+
+sudo /usr/local/bin/start-docker-proxy &
+exec /usr/local/bin/jenkins.sh

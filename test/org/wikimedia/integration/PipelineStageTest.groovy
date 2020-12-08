@@ -2,6 +2,8 @@ import groovy.mock.interceptor.MockFor
 import static groovy.test.GroovyAssert.*
 import groovy.util.GroovyTestCase
 
+import java.net.URI
+
 import org.wikimedia.integration.Pipeline
 import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.PipelineStage
@@ -17,7 +19,10 @@ class PipelineStageTest extends GroovyTestCase {
 
     assert PipelineStage.defaultConfig(cfg) == [
       name: "foo",
-      build: '${.stage}',
+      build: [
+        variant: '${.stage}',
+        context: '.',
+      ],
       run: [
         image: '${.imageID}',
         arguments: [],
@@ -27,16 +32,51 @@ class PipelineStageTest extends GroovyTestCase {
     ]
   }
 
+  void testDefaultConfig_build() {
+    def cfg = [
+      name: "foo",
+      build: [
+        context: ".",
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      name: "foo",
+      build: [
+        variant: '${.stage}',
+        context: ".",
+      ],
+    ]
+
+    cfg = [
+      name: "foo",
+      build: [
+        variant: "bar",
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      name: "foo",
+      build: [
+        variant: "bar",
+        context: ".",
+      ],
+    ]
+  }
+
   void testDefaultConfig_run() {
     def cfg = [
       name: "foo",
-      build: "foo",
+      build: "bar",
       run: true,
     ]
 
     assert PipelineStage.defaultConfig(cfg) == [
       name: "foo",
-      build: "foo",
+      build: [
+        variant: "bar",
+        context: ".",
+      ],
 
       // run: true means run the built image
       run: [
@@ -154,7 +194,11 @@ class PipelineStageTest extends GroovyTestCase {
       stages: [
         [
           name: "foo",
-          build: "foovariant",
+          build: [
+            variant: '${.stage}variant',
+            context: '${.stage}/dir',
+            excludes: [".git", '${.stage}/docs/*'],
+          ],
         ],
       ]
     ])
@@ -169,9 +213,11 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.build { variant, labels ->
+    mockRunner.demand.build { variant, labels, context, excludes ->
       assert variant == "foovariant"
       assert labels == [foo: "foolabel", bar: "barlabel"]
+      assert context == URI.create("foo/dir")
+      assert excludes == [".git", "foo/docs/*"]
 
       "foo-image-id"
     }

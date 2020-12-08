@@ -3,6 +3,7 @@ import static groovy.test.GroovyAssert.*
 import groovy.util.GroovyTestCase
 
 import java.io.FileNotFoundException
+import java.net.URI
 
 import org.wikimedia.integration.Blubber
 import org.wikimedia.integration.PipelineRunner
@@ -89,35 +90,60 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
     def mockBlubber = new MockFor(Blubber)
 
-    mockWorkflow.demand.fileExists { true }
-
     mockBlubber.demand.generateDockerfile { variant ->
       assert variant == "foo"
 
       "BASE: foo\n"
     }
 
-    mockWorkflow.demand.writeFile { args ->
-      assert args.text == "BASE: foo\n"
-      assert args.file ==~ /^\.pipeline\/Dockerfile\.[a-z0-9]+$/
-    }
+    mockWorkflow.demand.with {
+      fileExists { true }
 
-    mockWorkflow.demand.sh { args ->
-      assert args.returnStdout
-      assert args.script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
-                            /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' \.$/)
+      writeFile { args ->
+        assert args.text == "BASE: foo\n"
+        assert args.file ==~ /^\.pipeline\/Dockerfile\.[a-z0-9]+$/
+      }
 
-      // Mock `docker build` output to test that we correctly parse the image ID
-      return "Removing intermediate container foo\n" +
-             " ---> bf1e86190382\n" +
-             "Successfully built bf1e86190382\n"
+      dir { context, Closure c ->
+        assert context == "foo/dir"
+        c()
+      }
+
+      fileExists { path -> false }
+
+      writeFile { args ->
+        assert args.text == ".git\n" +
+                            "*.md\n" +
+                            "!README.md\n"
+        assert args.file == ".dockerignore"
+      }
+
+      sh { args ->
+        assert args.returnStdout
+        assert args.script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
+                              /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' 'foo\/dir'$/)
+
+        // Mock `docker build` output to test that we correctly parse the image ID
+        return "Removing intermediate container foo\n" +
+               " ---> bf1e86190382\n" +
+               "Successfully built bf1e86190382\n"
+      }
     }
 
     mockWorkflow.use {
       mockBlubber.use {
         def runner = new PipelineRunner(new WorkflowScript())
 
-        assert runner.build("foo", [foo: "a", bar: "b"]) == "bf1e86190382"
+        def variant = "foo"
+        def labels = [foo: "a", bar: "b"]
+        def context = URI.create("foo/dir")
+        def excludes = [
+          ".git",
+          "*.md",
+          "!README.md",
+        ]
+
+        assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
       }
     }
   }

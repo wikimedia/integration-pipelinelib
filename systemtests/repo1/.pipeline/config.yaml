@@ -20,3 +20,11 @@ pipelines:
       - name: test
         exports:
           foo: '${setup.timestamp}-${.stage}'
+  test-build-options:
+    blubberfile: blubber.yaml
+    stages:
+      - name: test-context-and-excludes
+        build:
+          variant: service1-checkexcludes
+          context: src/service1
+          excludes: [Makefile]

@@ -20,8 +20,8 @@ class Utility {
    * @param argument Shell argument.
    * @return Quoted shell argument.
    */
-  static String arg(String argument) {
-    "'" + argument.replace("'", "'\\''") + "'"
+  static String arg(argument) {
+    "'" + argument.toString().replace("'", "'\\''") + "'"
   }
 
   /**
