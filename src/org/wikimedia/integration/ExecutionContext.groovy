@@ -157,6 +157,15 @@ class ExecutionContext implements Serializable {
     }
 
     /**
+     * Returns read-only version of the current bindings for this node only.
+     *
+     * This is only intended for read-only/reporting purposes.
+     */
+    def getAll() {
+      globals[node].asImmutable()
+    }
+
+    /**
      * Returns all objects bound to the given name under any node namespace,
      * as well as the node under which it is found.
      *

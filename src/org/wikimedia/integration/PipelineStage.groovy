@@ -261,6 +261,9 @@ class PipelineStage implements Serializable {
           }
         }
       }
+
+      def exports = context.getAll()
+      ws.echo "stage ${name} completed. exported: ${exports.inspect()}"
     })
   }
 
@@ -318,6 +321,21 @@ class PipelineStage implements Serializable {
    *    <code>ci.project</code>,
    *    <code>ci.pipeline</code>
    * </dd>
+   *
+   * <dt><code>${setup.commit}</code></dt>
+   * <dd>Git commit SHA of the checked out patchset.</dd>
+   *
+   * <dt><code>${setup.branch}</code></dt>
+   * <dd>Git branch of the checked out patchset.</dd>
+   *
+   * <dt><code>${setup.remote}</code></dt>
+   * <dd>Git remote URL of the checked out patchset.</dd>
+   *
+   * <dt>(Additional job parameters and checkout variables)</dt>
+   * <dd>In addition to the above, all job parameters and checkout variables
+   * are included as well.</dd>
+   * <dd>For example, if the job is configured with a parameter called "FOO",
+   * the parameter value will be available as <code>${setup.FOO}</code>.</dd>
    * </dl>
    */
   void setup(ws, runner) {
@@ -326,9 +344,14 @@ class PipelineStage implements Serializable {
       "jenkins.build": ws.env.BUILD_ID,
     ]
 
+    // include all job parameters in the setup context
+    ws.params.each { k, v -> context[k] = v }
+
+    def gitInfo = [:]
+
     if (ws.params.ZUUL_REF) {
       def patchset = PatchSet.fromZuul(ws.params)
-      ws.checkout(patchset.getSCM())
+      gitInfo = ws.checkout(patchset.getSCM())
       context["project"] = patchset.project.replaceAll('/', '-')
       imageLabels["zuul.commit"] = patchset.commit
 
@@ -336,10 +359,17 @@ class PipelineStage implements Serializable {
       context["projectShortName"] = splitProject[splitProject.size() - 1]
 
     } else {
-      ws.checkout(ws.scm)
+      gitInfo = ws.checkout(ws.scm)
       context["project"] = ws.env.JOB_NAME
       context["projectShortName"] = ws.env.JOB_NAME
     }
+
+    // include all returned checkout information, normalizing the names of
+    // key items such as commit, branch, and remote URL
+    context["commit"] = gitInfo.GIT_COMMIT
+    context["branch"] = gitInfo.GIT_BRANCH
+    context["remote"] = gitInfo.GIT_URL
+    gitInfo.each { k, v -> context[k] = v }
 
     imageLabels["ci.project"] = context['project']
     imageLabels["ci.pipeline"] = pipeline.name
@@ -720,7 +750,6 @@ class PipelineStage implements Serializable {
   void exports(ws, runner) {
     config.exports.each { export, value ->
       context[export] = context % value
-      ws.echo "exported ${name}.${export}=${context[export].inspect()}"
     }
   }
 }

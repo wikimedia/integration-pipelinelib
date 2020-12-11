@@ -148,6 +148,10 @@ class ExecutionContextTest extends GroovyTestCase {
     context.ofNode("c").bind("foo", "cfoo")
     context.ofNode("y").bind("foo", "yfoo")
 
+    assert context.ofNode("a").getAll() == [
+      "foo": "afoo",
+    ]
+
     assert context.ofNode("z").getAll("foo") == [
       a: "afoo",
       c: "cfoo",

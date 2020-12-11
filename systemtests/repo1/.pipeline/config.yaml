@@ -28,3 +28,10 @@ pipelines:
           variant: service1-checkexcludes
           context: src/service1
           excludes: [Makefile]
+  test-checkout-binding:
+    stages:
+      - name: test
+        exports:
+          commit: '${setup.commit}'
+          branch: '${setup.branch}'
+          remote: '${setup.remote}'

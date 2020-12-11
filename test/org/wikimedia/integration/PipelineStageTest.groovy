@@ -389,10 +389,6 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockWS.demand.echo { msg ->
-      assert msg == "exported foo.thing='foo-image-id-0000-00-00-000000'"
-    }
-
     mockWS.use {
       mockRunner.use {
         def ws = new WorkflowScript()
