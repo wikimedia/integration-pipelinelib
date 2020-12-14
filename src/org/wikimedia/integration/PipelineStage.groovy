@@ -98,7 +98,7 @@ class PipelineStage implements Serializable {
    *     [
    *       chart: '${setup.project}',
    *       environments: []
-   *       version: "\${/imageTag}"
+   *       version: "\${.imageTag}"
    *     ]
    *   ]
    * </code></pre>
@@ -681,8 +681,18 @@ class PipelineStage implements Serializable {
    *     effectively ignored</dd>
    *
    *     <dt>chart</dt>
-   *     <dd>URL of Helm chart to use for deployment</dd>
-   *     <dd>Required</dd>
+   *     <dd>
+   *       <dl>
+   *         <dt>name</dt>
+   *         <dd>Chart name from the {@link PipelineRunner#chartRepository}.</dd>
+   *         <dd>Default: <code>${setup.projectShortName}</code></dd>
+   *
+   *         <dt>version</dt>
+   *         <dd>Chart version.</dd>
+   *         <dd>Default: <code>${.imageTag}</code> (The primary tag of image
+   *         built in this stage.)</dd>
+   *       </dl>
+   *     </dd>
    *
    *     <dt>test</dt>
    *     <dd>Whether to run <code>helm test</code> against this deployment</dd>
