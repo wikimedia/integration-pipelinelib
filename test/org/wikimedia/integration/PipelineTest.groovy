@@ -9,6 +9,11 @@ class PipelineTest extends GroovyTestCase {
     def pipeline = new Pipeline("foo", [
       blubberfile: "bar/blubber.yaml",
       directory: "src/foo",
+      fetch: [
+        shallow: true,
+        depth: 50,
+        submodules: false,
+      ],
       stages: [
         [name: "unit"],
         [name: "lint"],
@@ -23,6 +28,9 @@ class PipelineTest extends GroovyTestCase {
 
     assert pipeline.blubberfile == "bar/blubber.yaml"
     assert pipeline.directory == "src/foo"
+    assert pipeline.fetchOptions.shallow == true
+    assert pipeline.fetchOptions.depth == 50
+    assert pipeline.fetchOptions.submodules == false
     assert pipeline.execution == [
       ["unit", "candidate", "production"],
       ["lint", "candidate", "production"],
@@ -41,7 +49,7 @@ class PipelineTest extends GroovyTestCase {
     ])
 
     assert pipeline.blubberfile == "foo/blubber.yaml"
-
+    assert pipeline.fetchOptions == [:]
     assert pipeline.execution == [
       ["unit", "lint", "candidate", "production"],
     ]

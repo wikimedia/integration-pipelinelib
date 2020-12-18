@@ -19,6 +19,10 @@ import org.wikimedia.integration.PipelineRunner
  *   serviceOne:
  *     blubberfile: serviceOne/blubber.yaml           # default based on service name for the dir
  *     directory: src/serviceOne
+ *     fetch:
+ *       shallow: true                                # Perform a shallow clone
+ *       depth: 2                                     # Git fetch depth
+ *       submodules: true                             # Checkout submodules
  *     execution:                                     # directed graph of stages to run
  *       - [unit, candidate]                          # each arc is represented horizontally
  *       - [lint, candidate]
@@ -63,6 +67,7 @@ class Pipeline implements Serializable {
   String name
   String blubberfile
   String directory
+  Map fetchOptions
 
   private static String baseNodeLabel = "pipelinelib"
   private Map stagesConfig
@@ -76,6 +81,7 @@ class Pipeline implements Serializable {
     name = pipelineName
     blubberfile = config.blubberfile ?: "${name}/blubber.yaml"
     directory = config.directory ?: "."
+    fetchOptions = config.fetch ?: [:]
     runnerOverrides = overrides
 
     stagesConfig = config.stages.collectEntries{

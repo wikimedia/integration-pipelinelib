@@ -351,7 +351,7 @@ class PipelineStage implements Serializable {
 
     if (ws.params.ZUUL_REF) {
       def patchset = PatchSet.fromZuul(ws.params)
-      gitInfo = ws.checkout(patchset.getSCM())
+      gitInfo = ws.checkout(patchset.getSCM(pipeline.fetchOptions))
       context["project"] = patchset.project.replaceAll('/', '-')
       imageLabels["zuul.commit"] = patchset.commit
 
