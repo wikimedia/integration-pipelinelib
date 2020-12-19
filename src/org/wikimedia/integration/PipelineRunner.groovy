@@ -165,7 +165,7 @@ class PipelineRunner implements Serializable {
     } finally {
       if (ignoreFileBackup) {
         workflowScript.dir(context.path) {
-          workflowScript.sh "mv ${arg(ignoreFileBackup) ${arg(ignoreFile)}}"
+          workflowScript.sh "mv ${arg(ignoreFileBackup)} ${arg(ignoreFile)}"
         }
       }
     }
