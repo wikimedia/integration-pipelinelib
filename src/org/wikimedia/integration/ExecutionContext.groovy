@@ -210,6 +210,8 @@ class ExecutionContext implements Serializable {
 
     /**
      * Operator alias for {@link interpolate()}.
+     *
+     * Use the modulo (%, percent) operator do variable expansion.
      */
     def mod(str) {
       interpolate(str)
