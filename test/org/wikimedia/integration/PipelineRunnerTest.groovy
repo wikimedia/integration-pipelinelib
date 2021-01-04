@@ -66,6 +66,14 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testQualifyRegistryPath_disallowsUpperCase() {
+    def pipeline = new PipelineRunner(new WorkflowScript())
+
+    shouldFail(AssertionError) {
+      pipeline.qualifyRegistryPath("foo-Bar")
+    }
+  }
+
   void testBuild_checksWhetherConfigExists() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
@@ -381,18 +389,6 @@ class PipelineRunnerTest extends GroovyTestCase {
                                       repository: 'foorepo')
 
       runner.registerAs("fooID", "fooname", "footag")
-    }
-  }
-
-  void testRegisterAs_bailsOnSlashes() {
-    def mockWorkflow = new MockFor(WorkflowScript)
-
-    mockWorkflow.use {
-      def runner = new PipelineRunner(new WorkflowScript())
-
-      shouldFail(AssertionError) {
-        runner.registerAs("fooID", "foo/name", "footag")
-      }
     }
   }
 

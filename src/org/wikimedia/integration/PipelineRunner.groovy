@@ -493,6 +493,7 @@ class PipelineRunner implements Serializable {
    */
   String qualifyRegistryPath(String name, String registryName = "") {
     assert !name.contains("/") : "image name ${name} cannot contain slashes"
+    assert name.toLowerCase() == name : "image name ${name} must be all lower case"
 
     [registryName ?: registry, repository, name].join("/")
   }

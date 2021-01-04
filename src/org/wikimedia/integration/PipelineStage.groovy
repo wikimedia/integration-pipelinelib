@@ -597,7 +597,7 @@ class PipelineStage implements Serializable {
       def publishImage = config.publish.image
 
       def imageID = context % publishImage.id
-      def imageName = context % publishImage.name
+      def imageName = (context % publishImage.name).toLowerCase()
       def imageTags = ([publishImage.tag] + publishImage.tags).collect { context % it }
 
       for (def tag in imageTags) {
