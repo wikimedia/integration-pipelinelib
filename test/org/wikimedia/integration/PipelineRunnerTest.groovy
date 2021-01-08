@@ -208,7 +208,7 @@ class PipelineRunnerTest extends GroovyTestCase {
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'foo/name-randomfoo' " +
+                        "-n 'randomfoo' " +
                         "--debug --wait --timeout 120 " +
                         "--repo https://helm-charts.wikimedia.org/stable/ " +
                         "--version '0.0.1'"
@@ -244,7 +244,7 @@ class PipelineRunnerTest extends GroovyTestCase {
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'foo/name-randomfoo' " +
+                        "-n 'randomfoo' " +
                         "--debug --wait --timeout 120 " +
                         "--repo https://helm-charts.wikimedia.org/stable/ "
 
@@ -279,7 +279,7 @@ class PipelineRunnerTest extends GroovyTestCase {
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'foo/name-randomfoo' " +
+                        "-n 'randomfoo' " +
                         "--debug --wait --timeout 120 " +
                         "--repo https://helm-charts.wikimedia.org/stable/ "
 
@@ -290,7 +290,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "helm --tiller-namespace='ci' " +
-                        "delete --purge 'foo/name-randomfoo'"
+                        "delete --purge 'randomfoo'"
 
       assert cmd == expectedCmd
     }

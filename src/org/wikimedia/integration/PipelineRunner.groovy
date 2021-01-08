@@ -216,7 +216,7 @@ class PipelineRunner implements Serializable {
     values = merge(values, overrides)
 
     def valuesFile = getTempFile("values.yaml.")
-    def release = imageName + "-" + randomAlphanum(8)
+    def release = randomAlphanum(8)
     def version = chartVersion ? "--version " + arg(chartVersion) : ""
 
     workflowScript.writeYaml(data: values, file: valuesFile)
