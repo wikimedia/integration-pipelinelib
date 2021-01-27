@@ -179,17 +179,16 @@ class ExecutionContext implements Serializable {
      * given, {@link binding(def, String)}.
      */
     def getAt(String key) {
-      def keys = key.split(/\./)
+      def sep = key.indexOf(".")
 
-      if (keys.size() > 1) {
-        if (keys[0] == "") {
-          return binding(keys[1])
-        }
+      def namespace = (sep < 0) ? "" : key.substring(0, sep)
+      def subkey = key.substring(sep + 1)
 
-        return binding(keys[0], keys[1])
+      if (namespace != "") {
+        return binding(namespace, subkey)
       }
 
-      return binding(key)
+      return binding(subkey)
     }
 
     /**

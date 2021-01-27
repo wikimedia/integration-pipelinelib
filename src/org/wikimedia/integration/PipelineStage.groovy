@@ -345,7 +345,7 @@ class PipelineStage implements Serializable {
     ]
 
     // include all job parameters in the setup context
-    ws.params.each { k, v -> context[k] = v }
+    ws.params.each { k, v -> context["params.${k}"] = v }
 
     def gitInfo = [:]
 
