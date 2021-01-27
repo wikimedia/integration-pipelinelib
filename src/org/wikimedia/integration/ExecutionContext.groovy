@@ -112,12 +112,11 @@ class ExecutionContext implements Serializable {
      * namespace. The value may later be retrieved by any descendent node's
      * context using {@link binding()}.
      */
-    @NonCPS
     void bind(String key, value)
       throws NameAlreadyBoundException {
 
       if (globals[node].containsKey(key)) {
-        throw new NameAlreadyBoundException(key: key)
+        throw new NameAlreadyBoundException(ns: node, key: key)
       }
 
       globals[node][key] = value
@@ -228,6 +227,7 @@ class ExecutionContext implements Serializable {
   class AncestorNotFoundException extends GroovyException {
     def ancestor, node
 
+    @NonCPS
     String getMessage() {
       "cannot access '${ancestor}.*' values since '${node}' does not follow it in the graph '${graph}'"
     }
@@ -236,16 +236,18 @@ class ExecutionContext implements Serializable {
   class NameNotFoundException extends GroovyException {
     def ns, key
 
+    @NonCPS
     String getMessage() {
       "no value bound for '${ns}.${key}'; all bound names are: ${getAllKeys().join(", ")}"
     }
   }
 
   class NameAlreadyBoundException extends GroovyException {
-    def key
+    def ns, key
 
+    @NonCPS
     String getMessage() {
-      "'${node}' already has a value assigned to '${key}'"
+      "'${ns}' already has a value assigned to '${key}'"
     }
   }
 }
