@@ -11,6 +11,32 @@ class UtilityTestCase extends GroovyTestCase {
     assert args(["foo bar'\n baz", "qux"]) == """'foo bar'\\''\n baz' 'qux'"""
   }
 
+  void testCollectAllNested() {
+    def obj = [
+      foo: "cat",
+      bar: [
+        [$class: "Bar", baz: "dog"],
+        [$class: "Qux", wat: "goat"],
+      ],
+    ]
+
+    def result = collectAllNested(obj, {
+      if (it instanceof Map && it['$class'] == "Qux") {
+        it['wat'] = "lamb"
+      }
+
+      it
+    })
+
+    assert result == [
+      foo: "cat",
+      bar: [
+        [$class: "Bar", baz: "dog"],
+        [$class: "Qux", wat: "lamb"],
+      ],
+    ]
+  }
+
   void testEnvs() {
       assert envs([foo: "'FOO_KEY'", bar: "baz"]) == """-e "foo='FOO_KEY'" -e "bar=baz" """
   }

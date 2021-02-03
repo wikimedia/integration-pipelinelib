@@ -84,6 +84,9 @@ class PatchSet implements Serializable {
    * <dd>Whether to (recursively) update submodules after checkout. Defaults
    * to <code>true</code>.</dd>
    *
+   * <dt><code>tags</code></dt>
+   * <dd>Whether to fetch tags. Defaults to <code>false</code></dd>
+   *
    * <dt><code>target</code></dt>
    * <dd>Directory in which to clone and checkout the working directory.
    * Defaults to the current directory.</dd>
@@ -92,10 +95,11 @@ class PatchSet implements Serializable {
   Map getSCM(Map options = [:]) {
     def depth = options.get('depth', 20)
     def shallow = options.get('shallow', true)
+    def tags = options.get('tags', false)
 
     def extensions = [
       [$class: 'WipeWorkspace'],
-      [$class: 'CloneOption', depth: depth, shallow: shallow],
+      [$class: 'CloneOption', depth: depth, shallow: shallow, noTags: !tags],
     ]
 
     if (options.get('submodules', true)) {

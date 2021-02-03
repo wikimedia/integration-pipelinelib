@@ -23,6 +23,7 @@ import org.wikimedia.integration.PipelineRunner
  *       shallow: true                                # Perform a shallow clone
  *       depth: 2                                     # Git fetch depth
  *       submodules: true                             # Checkout submodules
+ *       tags: true                                   # Fetch all remote tags
  *     execution:                                     # directed graph of stages to run
  *       - [unit, candidate]                          # each arc is represented horizontally
  *       - [lint, candidate]

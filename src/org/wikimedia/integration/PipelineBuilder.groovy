@@ -1,5 +1,7 @@
 package org.wikimedia.integration
 
+import static org.wikimedia.integration.Utility.collectAllNested
+
 import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
@@ -50,9 +52,27 @@ class PipelineBuilder implements Serializable {
     ws.node(Pipeline.baseNodeLabel) {
       ws.stage("configure") {
         if (ws.params.ZUUL_REF) {
-          ws.checkout(PatchSet.fromZuul(ws.params).getSCM(submodules: false, depth: 1))
+          ws.checkout(PatchSet.fromZuul(ws.params).getSCM(
+            submodules: false,
+            depth: 1,
+            tags: false,
+          ))
         } else {
-          ws.checkout(ws.scm)
+          ws.checkout(collectAllNested(ws.scm, {
+            if (it instanceof Map) {
+              if (it['$class'] == 'CloneOption') {
+                it.depth = 1
+                it.shallow = true
+                it.noTags = true
+              }
+
+              if (it['$class'] == 'SubmoduleOption') {
+                it.disableSubmodules = true
+              }
+            }
+
+            return it
+          }))
         }
 
         config = ws.readYaml(file: configPath)

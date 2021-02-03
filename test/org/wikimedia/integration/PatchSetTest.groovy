@@ -66,6 +66,7 @@ class PatchSetTest extends GroovyTestCase {
         $class: 'CloneOption',
         depth: 20,
         shallow: true,
+        noTags: true,
       ]
     )
 
@@ -94,6 +95,7 @@ class PatchSetTest extends GroovyTestCase {
         $class: 'CloneOption',
         depth: 1,
         shallow: true,
+        noTags: true,
       ]
     )
 

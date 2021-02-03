@@ -35,6 +35,26 @@ class Utility {
   }
 
   /**
+   * Similar to collectNested, recursively iterates through the given object's
+   * collections and transforms each value by calling the given closure. Where
+   * this differs from the former is that even the collection values
+   * themselves are transformed. This method also supports Maps whereas the
+   * former does not.
+   */
+  static def collectAllNested(obj, func = { it }) {
+    switch (obj) {
+      case Map:
+        obj = obj.collectEntries { k, v -> [k, collectAllNested(v, func)] }
+        break;
+      case Collection:
+        obj = obj.collect { v -> collectAllNested(v, func) }
+        break;
+    }
+
+    func(obj)
+  }
+
+  /**
    * Combines all given environment variables into docker option format
    * @param envVars Environment variables
    * @return environment variable options string
@@ -59,7 +79,7 @@ class Utility {
     switch (value) {
       case Map:
         return value.collectEntries { k, v -> [k, mapStrings(v, func)] }
-      case List:
+      case Collection:
         return value.collect { v -> mapStrings(v, func) }
       case String:
       case GString:
