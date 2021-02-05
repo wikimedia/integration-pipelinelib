@@ -367,7 +367,7 @@ class PipelineStage implements Serializable {
     // include all returned checkout information, normalizing the names of
     // key items such as commit, branch, and remote URL
     context["commit"] = gitInfo.GIT_COMMIT
-    context["branch"] = gitInfo.GIT_BRANCH
+    context["branch"] = gitInfo.GIT_LOCAL_BRANCH
     context["remote"] = gitInfo.GIT_URL
     gitInfo.each { k, v -> context[k] = v }
 
