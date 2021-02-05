@@ -352,7 +352,7 @@ class PipelineStage implements Serializable {
     if (ws.params.ZUUL_REF) {
       def patchset = PatchSet.fromZuul(ws.params)
       gitInfo = ws.checkout(patchset.getSCM(pipeline.fetchOptions))
-      context["project"] = patchset.project.replaceAll('/', '-')
+      context["project"] = sanitizeProjectName(patchset.project)
       imageLabels["zuul.commit"] = patchset.commit
 
       def splitProject = patchset.project.split('/')
@@ -360,8 +360,8 @@ class PipelineStage implements Serializable {
 
     } else {
       gitInfo = ws.checkout(ws.scm)
-      context["project"] = ws.env.JOB_NAME
-      context["projectShortName"] = ws.env.JOB_NAME
+      context["project"] = sanitizeProjectName(URI.create(gitInfo.GIT_URL).path.replaceFirst('^/(r/)?', ''))
+      context["projectShortName"] = context["project"]
     }
 
     // include all returned checkout information, normalizing the names of
@@ -761,5 +761,11 @@ class PipelineStage implements Serializable {
     config.exports.each { export, value ->
       context[export] = context % value
     }
+  }
+
+  private
+
+  String sanitizeProjectName(name) {
+    name.replaceAll('/', '-')
   }
 }
