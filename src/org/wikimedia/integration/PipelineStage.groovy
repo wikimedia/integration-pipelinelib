@@ -352,17 +352,15 @@ class PipelineStage implements Serializable {
     if (ws.params.ZUUL_REF) {
       def patchset = PatchSet.fromZuul(ws.params)
       gitInfo = ws.checkout(patchset.getSCM(pipeline.fetchOptions))
-      context["project"] = sanitizeProjectName(patchset.project)
+      context["project"] = patchset.project
       imageLabels["zuul.commit"] = patchset.commit
-
-      def splitProject = patchset.project.split('/')
-      context["projectShortName"] = splitProject[splitProject.size() - 1]
 
     } else {
       gitInfo = ws.checkout(ws.scm)
-      context["project"] = sanitizeProjectName(URI.create(gitInfo.GIT_URL).path.replaceFirst('^/(r/)?', ''))
-      context["projectShortName"] = context["project"]
+      context["project"] = URI.create(gitInfo.GIT_URL).path.replaceFirst('^/(r/)?', '')
     }
+
+    context["projectShortName"] = context["project"].substring(context["project"].lastIndexOf('/')+1)
 
     // include all returned checkout information, normalizing the names of
     // key items such as commit, branch, and remote URL
@@ -597,8 +595,10 @@ class PipelineStage implements Serializable {
       def publishImage = config.publish.image
 
       def imageID = context % publishImage.id
-      def imageName = (context % publishImage.name).toLowerCase()
-      def imageTags = ([publishImage.tag] + publishImage.tags).collect { context % it }
+      def imageName = sanitizeImageRef(context % publishImage.name)
+      def imageTags = ([publishImage.tag] + publishImage.tags).collect {
+        sanitizeImageRef(context % it)
+      }
 
       for (def tag in imageTags) {
         runner.registerAs(
@@ -765,7 +765,7 @@ class PipelineStage implements Serializable {
 
   private
 
-  String sanitizeProjectName(name) {
-    name.replaceAll('/', '-')
+  String sanitizeImageRef(name) {
+    name.toLowerCase().replaceAll('/', '-')
   }
 }
