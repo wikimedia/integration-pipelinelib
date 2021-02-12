@@ -17,6 +17,7 @@ ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
 endif
 
 JENKINS_HOST ?= localhost
+TEST_PIPELINE ?=
 
 .PHONY: test
 
@@ -65,7 +66,7 @@ systemtest:
 	  sleep 1; \
 	done
 
-	curl -X POST $(JENKINS_URL)/job/repo1/build
+	curl -X POST $(JENKINS_URL)/job/repo1/buildWithParameters?PLIB_PIPELINE=$(TEST_PIPELINE)
 
 	@echo "Build $(JENKINS_URL)/job/repo1/1 created"
 	@while curl -sw %%{http_code} $(JENKINS_URL)/job/repo1/1/api/json | grep -q '404'; do \

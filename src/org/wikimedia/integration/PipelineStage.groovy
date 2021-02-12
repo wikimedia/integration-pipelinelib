@@ -38,6 +38,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       tail: 0,
    *     ],
    *   ]
    * </code></pre>
@@ -52,6 +53,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       tail: 0,
    *     ],
    *   ]
    * </code></pre>
@@ -67,6 +69,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       tail: 0,
    *     ],
    *   ]
    * </code></pre>
@@ -153,6 +156,7 @@ class PipelineStage implements Serializable {
 
       // run.credentials defaults to [:]
       dcfg.run.credentials = dcfg.run.credentials ?: [:]
+      dcfg.run.tail = dcfg.run.tail ?: 0
     }
 
     if (dcfg.publish) {
@@ -390,7 +394,7 @@ class PipelineStage implements Serializable {
     } catch (all) {}
 
     def imageTags = context.getAll("imageTags")
-    context.getAll("publishedImage").collect { stageName, image ->
+    context.getAll("publishedImage").each { stageName, image ->
       try {
         runner.reportImageToGerrit(image, imageTags[stageName] ?: [])
       } catch (all) {}
@@ -485,6 +489,11 @@ class PipelineStage implements Serializable {
    *     <dt><code>arguments</code></dt>
    *     <dd>Entry-point arguments</dd>
    *     <dd>Default: <code>[]</code></dd>
+   *
+   *     <dt><code>tail</code></dt>
+   *     <dd>Save this many lines of trailing output as
+   *     <code>${[stage].output}</code>.</dd>
+   *     <dd>Default: <code>0</code></dd>
    *   </dl>
    * </dd>
    * </dl>
@@ -515,13 +524,21 @@ class PipelineStage implements Serializable {
    *           - id: 'sonarid'
    *             name: 'SONAR_API_KEY'
    * </code></pre>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[stage].output}</code></dt>
+   * <dd>If <code>tail</code>is specified, that number of trailing
+   * lines from the output (stdout) of container process.</dd>
+   * </dl>
    */
   void run(ws, runner) {
-    runner.run(
+    context["output"] = runner.run(
       context % config.run.image,
-      config.run.arguments.collect { context % it },
-      config.run.env,
+      context % config.run.arguments,
+      context % config.run.env,
       config.run.credentials.collectEntries { it -> [it.id, it.name]},
+      config.run.tail,
     )
   }
 
