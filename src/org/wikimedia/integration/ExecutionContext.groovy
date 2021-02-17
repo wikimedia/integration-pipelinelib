@@ -3,7 +3,7 @@ package org.wikimedia.integration
 import com.cloudbees.groovy.cps.NonCPS
 import org.codehaus.groovy.GroovyException
 
-import static org.wikimedia.integration.Utility.mapStrings
+import static org.wikimedia.integration.Utility.randomAlphanum
 
 import org.wikimedia.integration.ExecutionGraph
 
@@ -98,8 +98,8 @@ class ExecutionContext implements Serializable {
     final def node
     final Set ancestors
 
-    NodeContext(contextNode, contextAncestors) {
-      globals[contextNode] = globals[contextNode] ?: [:]
+    NodeContext(contextNode, contextAncestors, initialBindings = [:]) {
+      globals[contextNode] = globals[contextNode] ?: initialBindings
 
       node = contextNode
       ancestors = contextAncestors
@@ -154,6 +154,17 @@ class ExecutionContext implements Serializable {
     }
 
     /**
+     * Creates and returns a new anonymous NodeContext for use in representing
+     * child context frames. For example, a list comprehension needs a new
+     * context in which to define its bound variable but can't modify its
+     * current node's context without potentially overwriting currently bound
+     * values.
+     */
+    NodeContext dive(Map bindings) {
+      new NodeContext(randomAlphanum(8), [node] + ancestors, bindings)
+    }
+
+    /**
      * Returns read-only version of the current bindings for this node only.
      *
      * This is only intended for read-only/reporting purposes.
@@ -190,18 +201,51 @@ class ExecutionContext implements Serializable {
     }
 
     /**
-     * Interpolates the strings found in the given object by substituting all
-     * symbol expressions with values previously bound by ancestor nodes.
+     * Interpolates the given object by evaluating all list comprehensions and
+     * substituting all variable expressions with previously bound values.
      */
     def interpolate(obj) {
-      mapStrings(obj) { str ->
-        // NOTE call to replaceAll does not rely on its sub matching feature as
-        // Groovy CPS does not implement it correctly, and marking this method
-        // as NonCPS causes it to only ever return the first substitution.
-        str.replaceAll(/\$\{\w*\.\w+\}/) {
-          this[it[2..-2]]
-        }
+      switch (obj) {
+        case String:
+        case GString:
+          // NOTE call to replaceAll does not rely on its sub matching feature as
+          // Groovy CPS does not implement it correctly, and marking this method
+          // as NonCPS causes it to only ever return the first substitution.
+          return obj.replaceAll(/\$\{\w*\.\w+\}/) {
+            this[it[2..-2]]
+          }
+        case Map:
+          // Handle list comprehensions
+          if ('$each' in obj) {
+            def var = obj['$each']
+            def delim = obj['$delimiter'] ?: "\n"
+            def input = interpolate(obj['$in'] ?: '')
+            def output = obj['$yield'] ?: sprintf('${.%s}', var)
+
+            switch (input) {
+              case String:
+              case GString:
+                input = input.tokenize(delim)
+              case Collection:
+                break;
+              default:
+                input = [input]
+            }
+
+            return input.collect {
+              // For each item in the input, allocate a new anonymous node
+              // context with the item bound to the given variable name and
+              // interpolate the defined output object
+              dive([(var): it]).interpolate(output)
+            }
+          }
+
+          return obj.collectEntries { k, v -> [k, interpolate(v)] }
+        case Collection:
+          return obj.collect { interpolate(it) }
       }
+
+      return obj
     }
 
     /**

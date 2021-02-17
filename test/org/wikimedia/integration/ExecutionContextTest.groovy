@@ -138,6 +138,39 @@ class ExecutionContextTest extends GroovyTestCase {
     assert (context.ofNode("a") % true) == true
   }
 
+  void testInterpolate_listComprehension() {
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a", "b"],
+    ]))
+
+    context.ofNode("a").bind("foo", "foo1\nfoo2\nfoo3\n")
+    context.ofNode("b").bind("bar", "bbar")
+
+    def obj = [
+      things: [
+        '$each': 'bar',
+        '$in': "foo1\nfoo2\nfoo3\n",
+        '$yield': [
+          fat: '${.bar}',
+          bat: '${b.bar}',
+          cat: [
+            '$each': 'char',
+            '$in': '${.bar}',
+            '$delimiter': 'o',
+          ],
+        ]
+      ]
+    ]
+
+    assert (context.ofNode("b") % obj) == [
+      things: [
+        [fat: 'foo1', bat: 'bbar', cat: ['f', '1']],
+        [fat: 'foo2', bat: 'bbar', cat: ['f', '2']],
+        [fat: 'foo3', bat: 'bbar', cat: ['f', '3']],
+      ],
+    ]
+  }
+
   void testNodeContextGetAll() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a", "b", "c", "z"],
