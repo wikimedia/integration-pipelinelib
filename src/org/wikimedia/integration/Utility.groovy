@@ -51,7 +51,7 @@ class Utility {
    * using the given closure.
    *
    * {@code
-   * mapStrings([foo: [bar: "ab"]], [baz: "xy"]) { it.reverse() }
+   * mapStrings([foo: [bar: "ab"], baz: "xy"]) { it.reverse() }
    * // [foo: [bar: "ba"], baz: "yx"]
    * }
    */
