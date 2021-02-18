@@ -196,6 +196,13 @@ class PipelineStageTest extends GroovyTestCase {
       stages: [
         [
           name: "foo",
+          blubberfile: [
+            version: "v4",
+            base: '${.stage}',
+            variants: [
+              foo: [:]
+            ],
+          ],
           build: [
             variant: '${.stage}variant',
             context: '${.stage}/dir',
@@ -214,6 +221,18 @@ class PipelineStageTest extends GroovyTestCase {
         ctx["imageLabels"] = [foo: "foolabel", bar: "barlabel"]
       },
     ])
+
+    mockRunner.demand.withBlubberConfig { cfg, c ->
+      assert cfg == [
+        version: "v4",
+        base: "foo",
+        variants: [
+          foo: [:]
+        ],
+      ]
+
+      c()
+    }
 
     mockRunner.demand.build { variant, labels, context, excludes ->
       assert variant == "foovariant"

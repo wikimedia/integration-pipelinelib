@@ -524,6 +524,36 @@ class PipelineRunner implements Serializable {
     helm("test --logs --cleanup ${arg(release)}")
   }
 
+  /**
+   * Temporarily overrides the blubberConfig with the given config which can
+   * either be a path to a new config file or an object containing valid
+   * inline Blubber configuration.
+   */
+  def withBlubberConfig(bc, Closure c) {
+    if (!bc) {
+      return c()
+    }
+
+    if (bc instanceof String) {
+      def prevConfig = blubberConfig
+
+      try {
+        blubberConfig = bc
+        return c()
+      } finally {
+        blubberConfig = prevConfig
+      }
+    }
+
+    // Config is a non-String object. Write it to a temp file and recurse.
+    // Note that the configPath prefix is removed from the temp file path
+    // since blubberConfig is expected to be relative to that directory
+    withTempFile("blubber.yaml.") { path ->
+      workflowScript.writeYaml(file: path, data: bc)
+      withBlubberConfig(path - "${configPath}/", c)
+    }
+  }
+
   private
 
   /**
