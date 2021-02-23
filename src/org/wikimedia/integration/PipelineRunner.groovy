@@ -141,9 +141,6 @@ class PipelineRunner implements Serializable {
 
     workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
 
-    def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
-    def dockerBuild = "docker build --pull --force-rm=true ${labelFlags} --file ${arg(dockerfile)} ${arg(context)}"
-
     def ignoreFile = ".dockerignore"
     def ignoreFileBackup
 
@@ -158,10 +155,18 @@ class PipelineRunner implements Serializable {
       }
     }
 
-    String output
-
     try {
-      output = workflowScript.sh(returnStdout: true, script: dockerBuild)
+      return withTempFile("docker.iid.") { imageIDFile ->
+        def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
+
+        workflowScript.sh(sprintf(
+          'docker build --pull --force-rm=true %s --iidfile %s --file %s %s',
+          labelFlags, arg(imageIDFile), arg(dockerfile), arg(context)
+        ))
+
+        def imageID = workflowScript.readFile(imageIDFile).trim()
+        return imageID.startsWith('sha256:') ? imageID.substring(7) : imageID
+      }
     } finally {
       if (ignoreFileBackup) {
         workflowScript.dir(context.path) {
@@ -169,9 +174,6 @@ class PipelineRunner implements Serializable {
         }
       }
     }
-
-    // Return just the image ID from `docker build` output
-    output.substring(output.lastIndexOf(" ") + 1).trim()
   }
 
   /**
@@ -460,8 +462,15 @@ class PipelineRunner implements Serializable {
    *
    * @param imageID Image ID.
    * @param arguments Entry-point arguments.
+   * @param envVars Environment variables to set.
+   * @param creds Credentials to expose to the running container process.
+   * @param outputLines Return the last n lines of the container's output.
+   *
+   * @return String Last <code>outputLines</code> of the container's output.
    */
-  void run(String imageID, List arguments = [], Map envVars = [:], Map creds = [:]) {
+  String run(String imageID, List arguments = [], Map envVars = [:], Map creds = [:],
+    Integer outputLines = 0) {
+
     // TODO: figure out how to restrict credentials a better way
     def textCredsList = creds.findResults{ k, v -> if (k == 'SONAR_API_KEY') {
       return [$class: 'StringBinding', credentialsId: k, variable: v]
@@ -470,17 +479,25 @@ class PipelineRunner implements Serializable {
     }}
     def argsString = args([imageID] + arguments)
     def credsWithVars = creds.collectEntries { k, v -> [v, '\${' + v + '}'] }
-    def runString = sprintf('exec docker run --rm %ssha256:%s', envs(envVars + credsWithVars), argsString)
+    def containerName = "plib-run-${randomAlphanum(8)}"
+    def runCmd = sprintf(
+      'docker run --rm --name %s %ssha256:%s',
+      arg(containerName), envs(envVars + credsWithVars), argsString
+    )
 
-    workflowScript.echo(runString)
+    workflowScript.echo(runCmd)
 
     workflowScript.timeout(time: 20, unit: "MINUTES") {
-      workflowScript.withCredentials(textCredsList){
-        workflowScript.sh ( sprintf('''
-          set +x
-          %s
-          set -x
-        ''', runString ) )
+      workflowScript.withCredentials(textCredsList) {
+        try {
+          return withOutput(runCmd, outputLines) { cmd ->
+            workflowScript.sh("set +x\n${cmd}")
+          }
+        } catch (InterruptedException ex) {
+          // ensure container termination upon abort/timeout/etc.
+          workflowScript.sh("docker stop ${arg(containerName)}")
+          throw ex
+        }
       }
     }
   }
@@ -508,6 +525,46 @@ class PipelineRunner implements Serializable {
   }
 
   private
+
+  /**
+   * Rewrites the given command with a stdout redirect to `tee` to both
+   * capture its output to a file and maintain its output to the console. The
+   * rewritten command is passed to the given closure for execution and the
+   * output-file contents are returned following deletion of the temporary
+   * file.
+   */
+  String withOutput(String cmd, Integer lines = -1, Closure c) {
+    if (lines == 0) {
+      c(cmd)
+      return ""
+    }
+
+    withTempFile("output.") { outputFile ->
+      c("${cmd} | tee ${arg(outputFile)}")
+      def contents = workflowScript.readFile(outputFile)
+
+      if (lines < 0) {
+        return contents
+      }
+
+      return contents.readLines().takeRight(lines).join("\n") + "\n"
+    }
+  }
+
+  /**
+   * Generates a path to a new temporary file under the pipeline directory,
+   * calls the given closure using the new path, and cleans up by deleting the
+   * temporary file.
+   */
+  def withTempFile(String prefix, Closure c) {
+    def path = getTempFile(prefix)
+
+    try {
+      return c(path)
+    } finally {
+      workflowScript.sh("rm -f ${arg(path)}")
+    }
+  }
 
   /**
    * Creates a temporary directory, calls the given closure with the directory

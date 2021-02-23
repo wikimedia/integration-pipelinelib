@@ -5,3 +5,7 @@ variants:
   service1-checkexcludes:
     copies: [local]
     entrypoint: [./checkexcludes.sh]
+  echo:
+    entrypoint: [/bin/echo, -e]
+  bash:
+    entrypoint: [/bin/bash, -c]

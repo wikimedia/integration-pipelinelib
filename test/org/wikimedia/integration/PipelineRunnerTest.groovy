@@ -126,15 +126,20 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.file == ".dockerignore"
       }
 
-      sh { args ->
-        assert args.returnStdout
-        assert args.script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
-                              /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' 'foo\/dir'$/)
+      sh { script ->
+        assert script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
+                           /--iidfile '.pipeline\/docker.iid.randomfoo' / +
+                           /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' 'foo\/dir'/)
+      }
 
-        // Mock `docker build` output to test that we correctly parse the image ID
-        return "Removing intermediate container foo\n" +
-               " ---> bf1e86190382\n" +
-               "Successfully built bf1e86190382\n"
+      readFile { path ->
+        assert '.pipeline/docker.iid.randomfoo'
+
+        return "sha256:bf1e86190382"
+      }
+
+      sh { script ->
+        assert script == "rm -f '.pipeline/docker.iid.randomfoo'"
       }
     }
 
@@ -557,7 +562,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
-      assert string == 'exec docker run --rm sha256:\'foo\''
+      assert string == 'docker run --rm --name \'plib-run-randomfoo\' sha256:\'foo\''
     }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
@@ -569,14 +574,11 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
       assert list == []
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == '''
-          set +x
-          exec docker run --rm sha256:'foo'
-          set -x
-        '''
-      }
       c()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -590,7 +592,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
-      assert string == 'exec docker run --rm -e "foo=bar" sha256:\'foo\''
+      assert string == 'docker run --rm --name \'plib-run-randomfoo\' -e "foo=bar" sha256:\'foo\''
     }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
@@ -602,16 +604,12 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
       assert list == []
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == '''
-          set +x
-          exec docker run --rm -e "foo=bar" sha256:'foo'
-          set -x
-        '''
-      }
       c()
     }
 
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' -e "foo=bar" sha256:\'foo\''
+    }
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
@@ -623,7 +621,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
-      assert string == 'exec docker run --rm -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
+      assert string == 'docker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
@@ -635,14 +633,11 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
       assert list == [[$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY']]
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == '''
-          set +x
-          exec docker run --rm -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:'foo'
-          set -x
-        '''
-      }
       c()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -669,7 +664,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
-      assert string == 'exec docker run --rm -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
+      assert string == 'docker run --rm --name \'plib-run-randomfoo\' -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
@@ -681,14 +676,11 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
       assert list == [[$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY']]
-      mockWorkflow.demand.sh { cmd ->
-        assert cmd == '''
-          set +x
-          exec docker run --rm -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:'foo'
-          set -x
-        '''
-      }
       c()
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -697,4 +689,56 @@ class PipelineRunnerTest extends GroovyTestCase {
       runner.run("foo", [], [foo: "bar"], [SONAR_API_KEY:'SONAR_API_KEY'])
     }
   }
+
+  void testRun_withOutput() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      echo { string ->
+        assert string == 'docker run --rm --name \'plib-run-randomfoo\' sha256:\'foo\''
+      }
+
+      timeout { Map args, Closure c ->
+        assert args.time == 20
+        assert args.unit == "MINUTES"
+
+        c()
+      }
+
+      withCredentials { list, Closure c ->
+        assert list == []
+        c()
+      }
+
+      sh { cmd ->
+        assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' sha256:\'foo\' | tee \'.pipeline/output.randomfoo\''
+      }
+
+      readFile { path ->
+        assert path == ".pipeline/output.randomfoo"
+
+        (
+          "one\n" +
+          "two\n" +
+          "three\n" +
+          "four\n"
+        )
+      }
+
+      sh { cmd ->
+        assert cmd == "rm -f '.pipeline/output.randomfoo'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      assert runner.run("foo", [], [:], [:], 3) == (
+        "two\n" +
+        "three\n" +
+        "four\n"
+      )
+    }
+  }
+
 }

@@ -28,6 +28,7 @@ class PipelineStageTest extends GroovyTestCase {
         arguments: [],
         env: [:],
         credentials: [:],
+        tail: 0,
       ],
     ]
   }
@@ -84,6 +85,7 @@ class PipelineStageTest extends GroovyTestCase {
         arguments: [],
         env: [:],
         credentials: [:],
+        tail: 0,
       ],
     ]
   }
@@ -555,7 +557,8 @@ class PipelineStageTest extends GroovyTestCase {
           run: [
             image: '${foo.imageID}',
             arguments: ['${.stage}arg'],
-            env: [foo: "bar"]
+            env: [foo: "bar"],
+            tail: 10,
           ],
         ],
       ]
@@ -571,11 +574,12 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.run { image, args, envVars, creds ->
+    mockRunner.demand.run { image, args, envVars, creds, lines ->
       assert image == "foo-image-id"
       assert args == ["bararg"]
       assert envVars == [foo: "bar"]
       assert creds == [:]
+      assert lines == 10
     }
 
     mockRunner.use {

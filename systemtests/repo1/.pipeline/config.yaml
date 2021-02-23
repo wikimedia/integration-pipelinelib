@@ -35,3 +35,23 @@ pipelines:
           commit: '${setup.commit}'
           branch: '${setup.branch}'
           remote: '${setup.remote}'
+  test-command-output:
+    blubberfile: blubber.yaml
+    stages:
+      - name: cat
+        build: bash
+        run:
+          arguments:
+            - |-
+              cat <<-end
+              hey
+              you
+              end
+          tail: 1
+      - name: test-it
+        build: bash
+        run:
+          arguments:
+            - '[[ "$1" == you* ]]'
+            - --
+            - '${cat.output}'
