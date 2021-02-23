@@ -171,6 +171,27 @@ class ExecutionContextTest extends GroovyTestCase {
     ]
   }
 
+  void testInterpolate_merge() {
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a"],
+    ]))
+
+    context.ofNode("a").bind("foo", "bar")
+
+    def obj = [
+      things: [
+        '$merge': ['a', 'b', 'c'],
+        '$with': ['c', 'd-${.foo}'],
+      ]
+    ]
+
+    assert (context.ofNode("a") % obj) == [
+      // merging of two lists should allow for duplicate entries in the
+      // results as is common in most languages
+      things: ['a', 'b', 'c', 'c', 'd-bar'],
+    ]
+  }
+
   void testNodeContextGetAll() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a", "b", "c", "z"],
