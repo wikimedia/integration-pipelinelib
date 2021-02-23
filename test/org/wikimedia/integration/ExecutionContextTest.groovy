@@ -192,6 +192,22 @@ class ExecutionContextTest extends GroovyTestCase {
     ]
   }
 
+  void testInterpolate_mapKeys() {
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a"],
+    ]))
+
+    context.ofNode("a").bind("foo", "bar")
+
+    def obj = [
+      'key-${.foo}': 'value-${.foo}',
+    ]
+
+    assert (context.ofNode("a") % obj) == [
+      'key-bar': 'value-bar',
+    ]
+  }
+
   void testNodeContextGetAll() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a", "b", "c", "z"],

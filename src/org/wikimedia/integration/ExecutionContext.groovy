@@ -245,7 +245,7 @@ class ExecutionContext implements Serializable {
             return interpolate(obj['$merge']) + interpolate(obj['$with'])
           }
 
-          return obj.collectEntries { k, v -> [k, interpolate(v)] }
+          return obj.collectEntries { k, v -> [interpolate(k), interpolate(v)] }
         case Collection:
           return obj.collect { interpolate(it) }
       }
