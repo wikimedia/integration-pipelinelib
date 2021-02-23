@@ -460,14 +460,14 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void build(ws, runner) {
-    def imageID = runner.build(
-      context % config.build.variant,
-      context["setup.imageLabels"],
-      URI.create(context % config.build.context),
-      context % config.build.excludes
-    )
-
-    context["imageID"] = imageID
+    runner.withBlubberConfig(context % config.blubberfile) {
+      context["imageID"] = runner.build(
+        context % config.build.variant,
+        context["setup.imageLabels"],
+        URI.create(context % config.build.context),
+        context % config.build.excludes
+      )
+    }
   }
 
   /**
