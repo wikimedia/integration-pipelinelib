@@ -2,6 +2,18 @@ version: v4
 base: docker-registry.wikimedia.org/wikimedia-stretch
 
 variants:
+  sequence:
+    entrypoint: [seq]
+  arithmetic:
+    entrypoint:
+      - bash
+      - -c
+      - |-
+        for expr in "$@"; do
+          echo $(($expr))
+        done
+      - --
+
   service1-checkexcludes:
     copies: [local]
     entrypoint: [./checkexcludes.sh]

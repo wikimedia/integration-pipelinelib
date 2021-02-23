@@ -55,3 +55,18 @@ pipelines:
             - '[[ "$1" == you* ]]'
             - --
             - '${cat.output}'
+  test-list-comprehensions:
+    blubberfile: blubber.yaml
+    stages:
+      - name: sequence
+        build: sequence
+        run:
+          arguments: [1, 5]
+          tail: 5
+      - name: square
+        build: arithmetic
+        run:
+          arguments:
+            $each: number
+            $in: '${sequence.output}'
+            $yield: '${.number}*${.number}'
