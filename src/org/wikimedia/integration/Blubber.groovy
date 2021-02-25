@@ -55,17 +55,17 @@ class Blubber implements Serializable {
   }
 
   /**
-   * Returns a request media type based on the config file extension.
+   * Returns a request media type based on the config file extensions.
    */
   String getConfigMediaType() {
-    def ext = configPath.substring(configPath.lastIndexOf(".") + 1)
+    def basename = configPath.substring(configPath.lastIndexOf("/") + 1)
+    def exts = basename.tokenize(".").drop(1)
 
-    switch (ext) {
-      case ["yaml", "yml"]:
-        return "application/yaml"
-      default:
-        return "application/json"
+    if (["yaml", "yml"].intersect(exts)) {
+      return "application/yaml"
     }
+
+    return "application/json"
   }
 
   /**

@@ -39,13 +39,13 @@ class BlubberTestCase extends GroovyTestCase {
   }
 
   void testGetConfigMediaType_yaml() {
-    def blubber = new Blubber(new WorkflowScript(), blubberConfig, blubberoidURL)
+    def blubber = new Blubber(new WorkflowScript(), ".pipeline/blubber.yaml.foo", blubberoidURL)
 
     assert blubber.getConfigMediaType() == "application/yaml"
   }
 
   void testGetConfigMediaType_yml() {
-    def blubber = new Blubber(new WorkflowScript(), blubberConfig, blubberoidURL)
+    def blubber = new Blubber(new WorkflowScript(), ".pipeline/blubber.yml.foo", blubberoidURL)
 
     assert blubber.getConfigMediaType() == "application/yaml"
   }
