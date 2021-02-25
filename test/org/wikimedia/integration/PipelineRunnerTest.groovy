@@ -741,4 +741,162 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testWithOutput() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+    def tmpFile = '.pipeline/output.randomfoo'
+
+    mockWorkflow.demand.with {
+      readFile { path ->
+        assert path == tmpFile
+
+        return "foo content"
+      }
+
+      sh { cmd ->
+        assert cmd == "rm -f '${tmpFile}'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      def output = runner.withOutput("foo") { cmd ->
+        assert cmd == "foo | tee '${tmpFile}'"
+      }
+
+      assert output == "foo content"
+    }
+  }
+
+  void testWithOutput_noLines() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      def output = runner.withOutput("foo", 0) { cmd ->
+        assert cmd == "foo"
+      }
+
+      assert output == ""
+    }
+  }
+
+  void testWithOutput_lines() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+    def tmpFile = '.pipeline/output.randomfoo'
+    def lines = 2
+
+    mockWorkflow.demand.with {
+      readFile { path ->
+        assert path == tmpFile
+
+        return (
+          "some\n" +
+          "foo\n" +
+          "content\n"
+        )
+      }
+
+      sh { cmd ->
+        assert cmd == "rm -f '${tmpFile}'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      def output = runner.withOutput("foo", lines) { cmd ->
+        assert cmd == "foo | tee '${tmpFile}'"
+      }
+
+      assert output == (
+        "foo\n" +
+        "content\n"
+      )
+    }
+  }
+
+  void testWithTempFile() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      sh { cmd ->
+        assert cmd == "rm -f '.pipeline/prefix.randomfoo'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.withTempFile("prefix.") { tempFile ->
+        assert tempFile == ".pipeline/prefix.randomfoo"
+      }
+    }
+  }
+
+  void testWithTempFile_noDeletion() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+        deleteTempFiles: false,
+      )
+
+      runner.withTempFile("prefix.") { tempFile ->
+        assert tempFile == ".pipeline/prefix.randomfoo"
+      }
+    }
+  }
+
+  void testWithTempDirectory() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      sh { args ->
+        assert args.returnStdout
+        assert args.script == "mktemp -d"
+
+        return "/tmp/dir"
+      }
+
+      dir { path, c ->
+        assert path == "/tmp/dir"
+        c()
+      }
+
+      deleteDir {}
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.withTempDirectory() { tempDir ->
+        assert tempDir == "/tmp/dir"
+      }
+    }
+  }
+
+  void testWithTempDirectory_noDeletion() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      sh { args ->
+        assert args.returnStdout
+        assert args.script == "mktemp -d"
+
+        return "/tmp/dir"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript(),
+        deleteTempFiles: false
+      )
+
+      runner.withTempDirectory() { tempDir ->
+        assert tempDir == "/tmp/dir"
+      }
+    }
+  }
 }

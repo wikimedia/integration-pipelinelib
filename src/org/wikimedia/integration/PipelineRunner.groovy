@@ -39,6 +39,11 @@ class PipelineRunner implements Serializable {
   def configPath = ".pipeline"
 
   /**
+   * Delete temporary files after use.
+   */
+  def deleteTempFiles = true
+
+  /**
    * Relative path to Helm config file.
    */
   def helmConfig = "helm.yaml"
@@ -303,7 +308,7 @@ class PipelineRunner implements Serializable {
         workflowScript.sh("sudo /usr/local/bin/docker-pusher ${arg(nameAndTag)}")
         break
       case "docker-push":
-        withTemporaryDirectory() { tempDir ->
+        withTempDirectory() { tempDir ->
           workflowScript.writeJSON(
             file: [tempDir, "config.json"].join("/"),
             json: [ credHelpers: [ (pushRegistry): "environment" ] ])
@@ -554,8 +559,6 @@ class PipelineRunner implements Serializable {
     }
   }
 
-  private
-
   /**
    * Rewrites the given command with a stdout redirect to `tee` to both
    * capture its output to a file and maintain its output to the console. The
@@ -592,7 +595,9 @@ class PipelineRunner implements Serializable {
     try {
       return c(path)
     } finally {
-      workflowScript.sh("rm -f ${arg(path)}")
+      if (deleteTempFiles) {
+        workflowScript.sh("rm -f ${arg(path)}")
+      }
     }
   }
 
@@ -600,17 +605,21 @@ class PipelineRunner implements Serializable {
    * Creates a temporary directory, calls the given closure with the directory
    * as an argument, and ensures the directory is removed.
    */
-  void withTemporaryDirectory(Closure c) {
+  void withTempDirectory(Closure c) {
     def tempDir = workflowScript.sh(returnStdout: true, script: "mktemp -d")
 
     try {
       c(tempDir)
     } finally {
-      workflowScript.dir(tempDir) {
-        workflowScript.deleteDir()
+      if (deleteTempFiles) {
+        workflowScript.dir(tempDir) {
+          workflowScript.deleteDir()
+        }
       }
     }
   }
+
+  private
 
   /**
    * Execute a helm command, specifying the right tiller namespace.
