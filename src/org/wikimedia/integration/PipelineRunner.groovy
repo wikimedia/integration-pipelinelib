@@ -7,6 +7,7 @@ import static org.wikimedia.integration.Utility.*
 
 import org.wikimedia.integration.GerritPipelineComment
 import org.wikimedia.integration.GerritReview
+import org.wikimedia.integration.PipelineCredentialManager
 
 /**
  * Provides an interface to common pipeline build/run/deploy functions.
@@ -102,6 +103,11 @@ class PipelineRunner implements Serializable {
    * Timeout for deployment using Helm.
    */
   def timeout = 120
+
+  /**
+   * A map of allowed credentials Ids and their binding for this pipeline ([credentialId: credentialbinding])
+   */
+   def allowedCredentials = [:]
 
   /**
    * Jenkins Pipeline Workflow context.
@@ -473,17 +479,20 @@ class PipelineRunner implements Serializable {
    *
    * @return String Last <code>outputLines</code> of the container's output.
    */
-  String run(String imageID, List arguments = [], Map envVars = [:], Map creds = [:],
+  String run(String imageID, List arguments = [], Map envVars = [:], List creds = [],
     Integer outputLines = 0) {
 
-    // TODO: figure out how to restrict credentials a better way
-    def textCredsList = creds.findResults{ k, v -> if (k == 'SONAR_API_KEY') {
-      return [$class: 'StringBinding', credentialsId: k, variable: v]
-    } else {
-      throw new RuntimeException("Invalid Credential: '${k}'. Allowed credentials: SONAR_API_KEY")
-    }}
+    def credBindings = []
+    def credsWithVars = [:]
+    def credentialManager = new PipelineCredentialManager([allowedCredentials: allowedCredentials])
+
+    creds.each {
+      def cred = credentialManager.generateCredential(it)
+      credBindings += cred.getBinding()
+      credsWithVars += cred.getDockerEnvVars()
+    }
+
     def argsString = args([imageID] + arguments)
-    def credsWithVars = creds.collectEntries { k, v -> [v, '\${' + v + '}'] }
     def containerName = "plib-run-${randomAlphanum(8)}"
     def runCmd = sprintf(
       'docker run --rm --name %s %ssha256:%s',
@@ -493,7 +502,7 @@ class PipelineRunner implements Serializable {
     workflowScript.echo(runCmd)
 
     workflowScript.timeout(time: 20, unit: "MINUTES") {
-      workflowScript.withCredentials(textCredsList) {
+      workflowScript.withCredentials(credBindings) {
         try {
           return withOutput(runCmd, outputLines) { cmd ->
             workflowScript.sh("set +x\n${cmd}")
