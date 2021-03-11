@@ -214,10 +214,12 @@ class PipelineStage implements Serializable {
     if (dcfg.deploy) {
       dcfg.deploy = dcfg.deploy.clone()
 
-      dcfg.deploy.image = dcfg.deploy.image ?: '${.publishedImage}'
+      dcfg.deploy.image = dcfg.deploy.image ?: '${.imageName}'
+      dcfg.deploy.tag = dcfg.deploy.tag ?: '${.imageTag}'
       dcfg.deploy.cluster = dcfg.deploy.cluster ?: "ci"
       dcfg.deploy.test = dcfg.deploy.test == null ? true : dcfg.deploy.test
       dcfg.deploy.overrides = dcfg.deploy.overrides ?: [:]
+      dcfg.deploy.timeout = dcfg.deploy.timeout ?: null
 
       if (dcfg.deploy.chart) {
         dcfg.deploy.chart = dcfg.deploy.chart.clone()
@@ -737,6 +739,7 @@ class PipelineStage implements Serializable {
       context % config.deploy.chart.version,
       context % config.deploy.image,
       context % config.deploy.tag,
+      context % config.deploy.timeout,
       context % config.deploy.overrides,
     )
 

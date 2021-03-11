@@ -149,7 +149,10 @@ class PipelineStageTest extends GroovyTestCase {
         ],
 
         // defaults to the previously published image
-        image: '${.publishedImage}',
+        image: '${.imageName}',
+
+        // defaults to the previously published image tag
+        tag: '${.imageTag}',
 
         // defaults to "ci"
         cluster: "ci",
@@ -159,12 +162,16 @@ class PipelineStageTest extends GroovyTestCase {
 
         // defaults to [:]
         overrides: [:],
+
+        // defaults to ""
+        timeout: null,
       ],
     ]
 
     cfg = [
       deploy: [
         image: "fooimage",
+        tag: "footag",
         cluster: "foocluster",
         test: true,
         overrides: [
@@ -181,12 +188,14 @@ class PipelineStageTest extends GroovyTestCase {
           version: "",
         ],
         image: "fooimage",
+        tag: "footag",
         cluster: "foocluster",
         test: true,
         overrides: [
           foo: [ bar: "x" ],
           baz: "y",
         ],
+        timeout: null,
       ],
     ]
   }
@@ -266,7 +275,7 @@ class PipelineStageTest extends GroovyTestCase {
         [
           name: "bar",
           deploy: [
-            image: '${foo.publishedImage}',
+            image: '${foo.imageName}',
             chart: [
               name: 'foo',
             ],
@@ -278,6 +287,7 @@ class PipelineStageTest extends GroovyTestCase {
                 baz: 'otherthing',
               ],
             ],
+            timeout: 120,
           ],
         ],
       ]
@@ -299,12 +309,13 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, chartVersion, image, tag, overrides ->
+    mockRunner.demand.deployWithChart { chart, chartVersion, image, tag, timeout, overrides ->
       assert chart == "foo"
       assert chartVersion == ""
-      assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      assert image == "foo-project"
       assert tag == "bar-tag"
       assert overrides == [foo: [bar: "xfoo-image-idy", baz: "otherthing"]]
+      assert timeout == 120
 
       "bar-release-name"
     }
@@ -336,7 +347,7 @@ class PipelineStageTest extends GroovyTestCase {
         [
           name: "bar",
           deploy: [
-            image: '${foo.publishedImage}',
+            image: '${foo.imageName}',
             chart: [
               name: 'foo',
             ],
@@ -363,12 +374,13 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.deployWithChart { chart, version, image, tag, overrides ->
+    mockRunner.demand.deployWithChart { chart, version, image, tag, timeout, overrides ->
       assert chart == "foo"
       assert version == ""
-      assert image == "registry.example/bar/foo-project:0000-00-00-000000-foo"
+      assert image == "foo-project"
       assert tag == "bar-tag"
       assert overrides == [:]
+      assert timeout == null
 
       "bar-release-name"
     }

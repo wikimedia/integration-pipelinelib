@@ -201,7 +201,7 @@ class PipelineRunner implements Serializable {
     assert cfg instanceof Map && cfg.chart && cfg.chart.name : "you must define 'chart: { name: <helm chart name> }' in ${cfg}"
     cfg.chart.version = cfg.chart.version ?: ""
 
-    deployWithChart(cfg.chart.name, cfg.chart.version, imageName, imageTag, overrides)
+    deployWithChart(cfg.chart.name, cfg.chart.version, imageName, imageTag, null, overrides)
   }
 
   /**
@@ -212,9 +212,11 @@ class PipelineRunner implements Serializable {
    * @param chartVersion the version of the chart.
    * @param imageName Name of the registered image to deploy.
    * @param imageTag  Tag of the registered image to use.
+   * @param timeout   Timeout length in milliseconds
    * @param overrides Additional Helm value overrides to set.
    */
-  String deployWithChart(String chart, String chartVersion, String imageName, String imageTag, Map overrides = [:]) {
+  String deployWithChart(String chart, String chartVersion, String imageName, String imageTag, helmTimeout = timeout, Map overrides = [:]) {
+    helmTimeout = helmTimeout ?: timeout
     def values = [
       docker: [
         registry: registry,
@@ -236,7 +238,7 @@ class PipelineRunner implements Serializable {
 
     try {
       helm("install ${arg(chart)} --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
-        "-n ${arg(release)} --debug --wait --timeout ${timeout} --repo ${chartRepository} ${version}")
+        "-n ${arg(release)} --debug --wait --timeout ${helmTimeout} --repo ${chartRepository} ${version}")
     } catch (Exception e) {
       // Attempt to purge failed releases
       purgeRelease(release)
