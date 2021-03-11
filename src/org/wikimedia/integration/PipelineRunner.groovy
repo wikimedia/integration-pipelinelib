@@ -212,7 +212,7 @@ class PipelineRunner implements Serializable {
    * @param chartVersion the version of the chart.
    * @param imageName Name of the registered image to deploy.
    * @param imageTag  Tag of the registered image to use.
-   * @param timeout   Timeout length in milliseconds
+   * @param timeout   Timeout length in seconds
    * @param overrides Additional Helm value overrides to set.
    */
   String deployWithChart(String chart, String chartVersion, String imageName, String imageTag, helmTimeout = timeout, Map overrides = [:]) {
