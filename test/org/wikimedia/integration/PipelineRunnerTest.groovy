@@ -621,7 +621,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.echo { string ->
-      assert string == 'docker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" -e "test=${test}" sha256:\'foo\''
+      assert string == 'docker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.demand.timeout { Map args, Closure c ->
@@ -632,21 +632,31 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.withCredentials { list, Closure c ->
-      assert list == [
-        [$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY'],
-        [$class:'StringBinding', credentialsId:'TEST', variable:'test']  
-      ]
+      assert list == [[$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY']]
       c()
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" -e "test=${test}" sha256:\'foo\''
+      assert cmd == 'set +x\ndocker run --rm --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.use {
-      def runner = new PipelineRunner(new WorkflowScript(), allowedCredentials: [SONAR_API_KEY: "StringBinding", TEST: "StringBinding"])
+      def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [:], [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY'], [id: 'TEST', name: 'test']])
+      runner.run("foo", [], [:], [SONAR_API_KEY:'SONAR_API_KEY'])
+    }
+  }
+
+  //TODO: update or remove when we figure out a better way to limit which creds are used
+  void testRun_withCreds_OnlyAcceptsSonar() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      shouldFail(RuntimeException) {
+        runner.run("foo", [], [:], [sonarid:'SONAR_API_KEY'])
+      }
     }
   }
 
@@ -674,9 +684,9 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.use {
-      def runner = new PipelineRunner(new WorkflowScript(), allowedCredentials: [SONAR_API_KEY: 'StringBinding'])
+      def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [foo: "bar"], [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY']])
+      runner.run("foo", [], [foo: "bar"], [SONAR_API_KEY:'SONAR_API_KEY'])
     }
   }
 
@@ -723,7 +733,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      assert runner.run("foo", [], [:], [], 3) == (
+      assert runner.run("foo", [], [:], [:], 3) == (
         "two\n" +
         "three\n" +
         "four\n"
