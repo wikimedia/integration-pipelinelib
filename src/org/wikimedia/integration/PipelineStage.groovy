@@ -38,6 +38,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       credentials: [],
    *       tail: 0,
    *     ],
    *   ]
@@ -53,6 +54,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       credentials: [],
    *       tail: 0,
    *     ],
    *   ]
@@ -69,6 +71,7 @@ class PipelineStage implements Serializable {
    *     run: [
    *       image: '${.imageID}', // runs the variant built by this stage
    *       arguments: [],
+   *       credentials: [],
    *       tail: 0,
    *     ],
    *   ]
@@ -154,8 +157,8 @@ class PipelineStage implements Serializable {
       // run.env defaults to [:]
       dcfg.run.env = dcfg.run.env ?: [:]
 
-      // run.credentials defaults to [:]
-      dcfg.run.credentials = dcfg.run.credentials ?: [:]
+      // run.credentials defaults to []
+      dcfg.run.credentials = dcfg.run.credentials ?: []
       dcfg.run.tail = dcfg.run.tail ?: 0
     }
 
@@ -539,7 +542,7 @@ class PipelineStage implements Serializable {
       context % config.run.image,
       context % config.run.arguments,
       context % config.run.env,
-      config.run.credentials.collectEntries { it -> [it.id, it.name]},
+      config.run.credentials,
       config.run.tail,
     )
   }
