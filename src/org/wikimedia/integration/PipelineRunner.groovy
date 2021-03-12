@@ -50,6 +50,11 @@ class PipelineRunner implements Serializable {
   def helmConfig = "helm.yaml"
 
   /**
+   * HTTP proxy to provide to pipeline configurations.
+   */
+  def httpProxy = null
+
+  /**
    * Absolute path to a Kubernetes config file to specify when executing
    * `helm` or other k8s related commands. By default, none will be specified.
    */

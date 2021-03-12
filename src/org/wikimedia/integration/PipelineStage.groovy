@@ -383,6 +383,11 @@ class PipelineStage implements Serializable {
 
     context["timestamp"] = timestampLabel()
     context["imageLabels"] = imageLabels
+
+    // provide an http proxy for use in pipeline configurations if configured
+    if (runner.httpProxy) {
+      context["httpProxy"] = runner.httpProxy
+    }
   }
 
   /**
