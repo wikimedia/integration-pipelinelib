@@ -181,7 +181,7 @@ class PipelineStage implements Serializable {
         // publish.image.tag defaults to {timestamp}-{stage name}
         pcfg.image.tag = pcfg.image.tag ?: "\${${SETUP}.timestamp}-\${.stage}"
 
-        pcfg.image.tags = (pcfg.image.tags ?: []).clone()
+        pcfg.image.tags = (pcfg.image.tags ?: ["\${${SETUP}.tag}"]).clone()
       }
 
       if (pcfg.files) {
@@ -340,6 +340,9 @@ class PipelineStage implements Serializable {
    * <dt><code>${setup.remote}</code></dt>
    * <dd>Git remote URL of the checked out patchset.</dd>
    *
+   * <dt><code>${setup.tag}</code></dt>
+   * <dd>Newly created git tag if one has been created/pushed.</dd>
+   *
    * <dt>(Additional job parameters and checkout variables)</dt>
    * <dd>In addition to the above, all job parameters and checkout variables
    * are included as well.</dd>
@@ -356,19 +359,21 @@ class PipelineStage implements Serializable {
     // include all job parameters in the setup context
     ws.params.each { k, v -> context["params.${k}"] = v }
 
-    def gitInfo = [:]
+    def gitRef
+    def scm
 
     if (ws.params.ZUUL_REF) {
       def patchset = PatchSet.fromZuul(ws.params)
-      gitInfo = ws.checkout(patchset.getSCM(pipeline.fetchOptions))
-      context["project"] = patchset.project
+      scm = patchset.getSCM(pipeline.fetchOptions)
+      gitRef = patchset.ref
       imageLabels["zuul.commit"] = patchset.commit
-
     } else {
-      gitInfo = ws.checkout(ws.scm)
-      context["project"] = URI.create(gitInfo.GIT_URL).path.replaceFirst('^/(r/)?', '')
+      scm = ws.scm
+      gitRef = ws.scm.branches[0].name
     }
 
+    def gitInfo = ws.checkout(scm)
+    context["project"] = URI.create(gitInfo.GIT_URL).path.replaceFirst('^/(r/)?', '')
     context["projectShortName"] = context["project"].substring(context["project"].lastIndexOf('/')+1)
 
     // include all returned checkout information, normalizing the names of
@@ -376,6 +381,14 @@ class PipelineStage implements Serializable {
     context["commit"] = gitInfo.GIT_COMMIT
     context["branch"] = gitInfo.GIT_LOCAL_BRANCH
     context["remote"] = gitInfo.GIT_URL
+
+    // include any bare tag name
+    if (gitRef.startsWith("refs/tags/")) {
+      context["tag"] = gitRef.substring("refs/tags/".length())
+    } else {
+      context["tag"] = ""
+    }
+
     gitInfo.each { k, v -> context[k] = v }
 
     imageLabels["ci.project"] = context['project']
@@ -582,6 +595,8 @@ class PipelineStage implements Serializable {
    *
    *         <dt>tags</dt>
    *         <dd>Additional tags under which to publish the image</dd>
+   *         <dd>Default: <code>[${setup.tag}]</code> The git tag if one has
+   *         been pushed. Otherwise, nothing.</dd>
    *       </dl>
    *     </dd>
    *   </dl>
@@ -626,6 +641,9 @@ class PipelineStage implements Serializable {
       def imageTags = ([publishImage.tag] + publishImage.tags).collect {
         sanitizeImageRef(context % it)
       }
+
+      // omit empty strings
+      imageTags.removeAll { !it }
 
       for (def tag in imageTags) {
         runner.registerAs(

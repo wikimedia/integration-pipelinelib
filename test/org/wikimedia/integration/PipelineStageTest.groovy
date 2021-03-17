@@ -109,8 +109,8 @@ class PipelineStageTest extends GroovyTestCase {
           // defaults to the pipeline start timestamp and this stage name
           tag: '${setup.timestamp}-${.stage}',
 
-          // defaults to []
-          tags: [],
+          // defaults to the local branch name
+          tags: ['${setup.tag}'],
         ],
       ],
     ]
@@ -461,6 +461,7 @@ class PipelineStageTest extends GroovyTestCase {
         ctx["project"] = "foo-project"
         ctx["timestamp"] = "0000-00-00-000000"
         ctx["imageLabels"] = []
+        ctx["tag"] = ""
       },
       built: { ctx ->
         ctx["imageID"] = "foo-image-id"
