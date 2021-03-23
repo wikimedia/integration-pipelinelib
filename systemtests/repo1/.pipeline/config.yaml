@@ -70,3 +70,17 @@ pipelines:
             $each: number
             $in: '${sequence.output}'
             $yield: '${.number}*${.number}'
+  test-copy:
+    blubberfile: blubber.yaml
+    stages:
+      - name: make-a-file
+        build: sh-local
+        run:
+          arguments: ['mkdir /tmp/foo && echo hi > /tmp/foo/greeting']
+        copy:
+          - source: /tmp/foo/greeting
+            destination: bar/greeting
+      - name: check-file-contents
+        build: sh-local
+        run:
+          arguments: ['[[ $(cat bar/greeting) == "hi" ]]']

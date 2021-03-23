@@ -91,16 +91,12 @@ class PipelineTest extends GroovyTestCase {
     assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
   }
 
-  void testGetDefaultNodeLabels_publishFiles() {
+  void testGetDefaultNodeLabels_copy() {
     def pipeline = new Pipeline("foo", [
       stages: [
         [
           name: "foo",
-          publish: [
-            files: [
-              paths: ["foo/*"],
-            ],
-          ],
+          copy: ["foo/*"],
         ],
       ],
     ])

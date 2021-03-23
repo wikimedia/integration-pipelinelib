@@ -32,9 +32,9 @@ import org.wikimedia.integration.PipelineRunner
  *       - name: unit                                 # stage name (required)
  *         build: phpunit                             # build an image variant
  *         run: "${.imageID}"                         # run the built image
- *         publish:
- *           files:                                   # publish select artifact files from the built/run image
- *             paths: ["foo/*", "bar"]                # copy files {foo/*,bar} from the image fs to ./artifacts/{foo/*,bar}
+ *         copy:                                      # copy files from a previously run container
+ *           - source: "foo/*"                        # copy files foo/* from the container fs
+ *             destination: "output/"                 # copy files into output/
  *       - name: lint                                 # default (build/run "lint" variant, no artifacts, etc.)
  *       - name: candidate
  *         build: production

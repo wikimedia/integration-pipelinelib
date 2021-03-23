@@ -90,7 +90,34 @@ class PipelineStageTest extends GroovyTestCase {
     ]
   }
 
-  void testDefaultConfig_publish() {
+  void testDefaultConfig_copy() {
+    def cfg = [
+      copy: [
+        "foo/source",
+        [
+          from: "bar-container",
+          source: "bar/source",
+        ],
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      copy: [
+        [
+          from: '${.container}',
+          source: "foo/source",
+          destination: "foo/source",
+        ],
+        [
+          from: "bar-container",
+          source: "bar/source",
+          destination: "bar/source",
+        ],
+      ],
+    ]
+  }
+
+  void testDefaultConfig_publishImage() {
     def cfg = [
       publish: [
         image: true,
@@ -260,6 +287,46 @@ class PipelineStageTest extends GroovyTestCase {
     }
 
     assert stage.context["imageID"] == "foo-image-id"
+  }
+
+  void testCopy() {
+    def pipeline = new Pipeline("foopipeline", [
+      stages: [
+        [
+          name: "save-stuff",
+          copy: [
+            [
+              from: '${.container}',
+              source: 'foo/artifact',
+              destination: 'foo/dest',
+            ],
+          ],
+        ],
+      ]
+    ])
+
+    def mockRunner = new MockFor(PipelineRunner)
+    def stack = pipeline.stack()
+    def stage = stack[1][0]
+
+    stubStageContexts(stack, [
+      'save-stuff': { ctx ->
+        ctx["container"] = "foo-container"
+      },
+    ])
+
+    mockRunner.demand.copyFilesFrom { container, source, destination ->
+      assert container == "foo-container"
+      assert source == "foo/artifact"
+      assert destination == "foo/dest"
+    }
+
+    mockRunner.use {
+      def ws = new WorkflowScript()
+      def runner = new PipelineRunner(ws)
+
+      stage.copy(ws, runner)
+    }
   }
 
   void testDeploy_withTest() {
@@ -615,6 +682,11 @@ class PipelineStageTest extends GroovyTestCase {
       assert envVars == [foo: "bar"]
       assert creds == [[id: "foo", name: "bar"]]
       assert lines == 10
+
+      return [
+        container: "foo-container",
+        output: "foo-output",
+      ]
     }
 
     mockRunner.use {
@@ -623,6 +695,9 @@ class PipelineStageTest extends GroovyTestCase {
 
       stage.run(ws, runner)
     }
+
+    assert stage.context["container"] == "foo-container"
+    assert stage.context["output"] == "foo-output"
   }
 
   private void stubStageContexts(stack, stubs) {

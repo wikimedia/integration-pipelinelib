@@ -100,4 +100,9 @@ class UtilityTestCase extends GroovyTestCase {
     assert alphanum.length() == 12
     alphanum.each { assert it in expectedChars }
   }
+
+  void testSanitizeRelativePath() {
+    assert sanitizeRelativePath("../../foo/../bar") == "bar"
+    assert sanitizeRelativePath("/../../foo/../bar") == "bar"
+  }
 }

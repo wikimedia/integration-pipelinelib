@@ -193,6 +193,23 @@ class PipelineRunner implements Serializable {
   }
 
   /**
+   * Copies files from the filesystem of the given stopped container into the
+   * working directory.
+   *
+   * @param container Container ID or name.
+   * @param source Source path relative to the container's root (/) directory.
+   * @param destination Destination path relative to the working directory.
+   */
+  void copyFilesFrom(String container, String source, String destination) {
+    destination = sanitizeRelativePath(destination)
+
+    workflowScript.sh(sprintf(
+      'mkdir -p "$(dirname %s)" && docker cp %s:%s %s',
+      arg(destination), arg(container), arg(source), arg(destination)
+    ))
+  }
+
+  /**
    * Deploys the given registered image using the configured Helm chart and
    * returns the name of the release.
    *
@@ -426,6 +443,18 @@ class PipelineRunner implements Serializable {
   }
 
   /**
+   * Removes the given containers, forcefully stopping them if they're still
+   * running.
+   *
+   * @param containers List of container IDs/names.
+   */
+  void removeContainers(List containers) {
+    if (containers.size() > 0) {
+      workflowScript.sh("docker rm --force ${args(containers)}")
+    }
+  }
+
+  /**
    * Removes the given image from the local cache. All tags are removed from
    * the image as well.
    *
@@ -484,9 +513,14 @@ class PipelineRunner implements Serializable {
    * @param creds Credentials to expose to the running container process.
    * @param outputLines Return the last n lines of the container's output.
    *
-   * @return String Last <code>outputLines</code> of the container's output.
+   * @return RunResult Last <code>outputLines</code> of the container's output
+   * and container name.
    */
-  String run(String imageID, List arguments = [], Map envVars = [:], List creds = [],
+  RunResult run(
+    String imageID,
+    List arguments = [],
+    Map envVars = [:],
+    List creds = [],
     Integer outputLines = 0) {
 
     def credBindings = []
@@ -502,7 +536,7 @@ class PipelineRunner implements Serializable {
     def argsString = args([imageID] + arguments)
     def containerName = "plib-run-${randomAlphanum(8)}"
     def runCmd = sprintf(
-      'docker run --rm --name %s %ssha256:%s',
+      'docker run --name %s %ssha256:%s',
       arg(containerName), envs(envVars + credsWithVars), argsString
     )
 
@@ -511,9 +545,12 @@ class PipelineRunner implements Serializable {
     workflowScript.timeout(time: 20, unit: "MINUTES") {
       workflowScript.withCredentials(credBindings) {
         try {
-          return withOutput(runCmd, outputLines) { cmd ->
-            workflowScript.sh("set +x\n${cmd}")
-          }
+          return new RunResult(
+            container: containerName,
+            output: withOutput(runCmd, outputLines) { cmd ->
+              workflowScript.sh("set +x\n${cmd}")
+            },
+          )
         } catch (InterruptedException ex) {
           // ensure container termination upon abort/timeout/etc.
           workflowScript.sh("docker stop ${arg(containerName)}")
@@ -651,5 +688,20 @@ class PipelineRunner implements Serializable {
   void kubeCmd(String cmd) {
     def env = kubeConfig ? "KUBECONFIG=${arg(kubeConfig)} " : ""
     workflowScript.sh("${env}${cmd}")
+  }
+
+  /**
+   * State of a run container returned by {@link run}.
+   */
+  class RunResult implements Serializable {
+    /**
+     * Container name.
+     */
+    String container
+
+    /**
+     * Output of the container entrypoint.
+     */
+    String output
   }
 }

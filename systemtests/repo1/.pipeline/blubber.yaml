@@ -2,6 +2,12 @@ version: v4
 base: docker-registry.wikimedia.org/wikimedia-stretch
 
 variants:
+  sh-local:
+    copies: [local]
+    entrypoint:
+      - bash
+      - -c
+
   sequence:
     entrypoint: [seq]
   arithmetic:

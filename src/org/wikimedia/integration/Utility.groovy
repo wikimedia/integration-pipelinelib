@@ -129,6 +129,24 @@ class Utility {
   }
 
   /**
+   * Forces the given path to be relative and absent any parent directory
+   * links (<code>..</code>) that would resolve to a directory outside the
+   * current one.
+   *
+   * @param path Path to sanitize.
+   *
+   * @return Sanitized path.
+   */
+  static String sanitizeRelativePath(String path) {
+    def relativeURI = (new URI('/')).relativize(new URI(path)).normalize()
+
+    // At this point, we're ensured a relative path and the inner part of the
+    // path should have no '..' references. However, there may be one of more
+    // leading '..' references which so simply remove them with a regex.
+    relativeURI.getPath().replaceAll(/^(..\/)*/, '')
+  }
+
+  /**
    * Returns a timestamp suitable for use in image names, tags, etc.
    */
   static String timestampLabel() {

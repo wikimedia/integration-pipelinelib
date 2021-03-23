@@ -13,7 +13,7 @@ import java.net.URI
 class PipelineStage implements Serializable {
   static final String SETUP = 'setup'
   static final String TEARDOWN = 'teardown'
-  static final List STEPS = ['build', 'run', 'publish', 'promote', 'deploy', 'exports']
+  static final List STEPS = ['build', 'run', 'copy', 'publish', 'promote', 'deploy', 'exports']
   static final URI CHARTSREPO = URI.create('https://gerrit.wikimedia.org/r/operations/deployment-charts.git')
 
   Pipeline pipeline
@@ -162,6 +162,27 @@ class PipelineStage implements Serializable {
       dcfg.run.tail = dcfg.run.tail ?: 0
     }
 
+    if (dcfg.copy) {
+      dcfg.copy = dcfg.copy.collect { file ->
+        switch (file) {
+          // handle short-hand [source, ...] syntax
+          case String:
+          case GString:
+            file = [source: file]
+        }
+
+        file = file.clone()
+
+        // copy[].from defaults to this stage's container
+        file.from = file.from ?: '${.container}'
+
+        // copy[].destination defaults to the source
+        file.destination = file.destination ?: file.source
+
+        file
+      }
+    }
+
     if (dcfg.publish) {
       def pcfg = dcfg.publish.clone()
 
@@ -182,10 +203,6 @@ class PipelineStage implements Serializable {
         pcfg.image.tag = pcfg.image.tag ?: "\${${SETUP}.timestamp}-\${.stage}"
 
         pcfg.image.tags = (pcfg.image.tags ?: ["\${${SETUP}.tag}"]).clone()
-      }
-
-      if (pcfg.files) {
-        pcfg.files.paths = pcfg.files.paths.clone()
       }
 
       dcfg.publish = pcfg
@@ -283,18 +300,12 @@ class PipelineStage implements Serializable {
   Set getRequiredNodeLabels() {
     def labels = [] as Set
 
-    if (config.build || config.run) {
+    if (config.build || config.run || config.copy) {
       labels.add("blubber")
     }
 
-    if (config.publish) {
-      if (config.publish.files) {
-        labels.add("blubber")
-      }
-
-      if (config.publish.image) {
-        labels.add("dockerPublish")
-      }
+    if (config.publish?.image) {
+      labels.add("dockerPublish")
     }
 
     if (config.promote) {
@@ -408,6 +419,10 @@ class PipelineStage implements Serializable {
    * back to Gerrit.
    */
   void teardown(ws, runner) {
+    try {
+      runner.removeContainers(context.getAll("container").values())
+    } catch (all) {}
+
     try {
       runner.removeImages(context.getAll("imageID").values())
     } catch (all) {}
@@ -556,18 +571,57 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void run(ws, runner) {
-    context["output"] = runner.run(
+    def result = runner.run(
       context % config.run.image,
       context % config.run.arguments,
       context % config.run.env,
       config.run.credentials,
       config.run.tail,
     )
+
+    context["container"] = result.container
+    context["output"] = result.output
   }
 
   /**
-   * Publish artifacts, either files or a built image variant (pushed to the
-   * WMF Docker registry).
+   * Copy files from the filesystem of a previously run container.
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>copy</code></dt>
+   * <dd>List of files/directories to copy from previously run variants to the
+   * local build context.</dd>
+   * <dd>Default: <code>[]</code></dd>
+   * <dd>
+   *   <dl>
+   *     <dt>from</dt>
+   *     <dd>Stopped container from which to copy files</dd>
+   *     <dd>Default: <code>${.container}</code> (the container that ran
+   *     during this stage's run step)</dd>
+   *
+   *     <dt>source</dt>
+   *     <dd>Globbed file path resolving any number of files relative to the
+   *     container's root (/) directory.</dd>
+   *
+   *     <dt>destination</dt>
+   *     <dd>Destination file path relative to the local context</dd>
+   *     <dd>Default: <code>source</code> (the source path made relative to
+   *     the local context directory).</dd>
+   *   </dl>
+   * </dd>
+   * <dd>Shorthand: <code>[source, source, ...]</code></dd>
+   * </dl>
+   */
+  void copy(ws, runner) {
+    if (config.copy) {
+      (context % config.copy).each {
+        runner.copyFilesFrom(it.from, it.source, it.destination)
+      }
+    }
+  }
+
+  /**
+   * Push a built image variant to the WMF Docker registry.
    *
    * <h3>Configuration</h3>
    * <dl>
@@ -601,20 +655,6 @@ class PipelineStage implements Serializable {
    *     </dd>
    *   </dl>
    * </dd>
-   * <dd>
-   *   <dl>
-   *     <dt><code>files</code></dt>
-   *     <dd>Extract and save files from a previously built image variant</dd>
-   *     <dd>
-   *       <dl>
-   *         <dt>paths</dt>
-   *         <dd>Globbed file paths resolving any number of files under the
-   *         image's root filesystem</dd>
-   *       </dl>
-   *     </dd>
-   *   </dl>
-   * </dd>
-   * </dl>
    *
    * <h3>Exports</h3>
    * <dl>
@@ -658,10 +698,6 @@ class PipelineStage implements Serializable {
       context["imageTag"] = context % publishImage.tag
       context["imageTags"] = imageTags
       context["publishedImage"] = context % '${.imageFullName}:${.imageTag}'
-    }
-
-    if (config.publish.files) {
-      // TODO
     }
   }
 
