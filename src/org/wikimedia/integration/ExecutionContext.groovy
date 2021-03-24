@@ -203,6 +203,78 @@ class ExecutionContext implements Serializable {
     /**
      * Interpolates the given object by evaluating all list comprehensions and
      * substituting all variable expressions with previously bound values.
+     *
+     * @example
+     * Strings may contain variable expressions
+     * <pre><code>
+     *   context.ofNode("a")["foo"] = "afoo"
+     *   context.ofNode("b")["foo"] = "bfoo"
+     *   assert (context.ofNode("b") % 'w-t-${.foo}') == "w-t-bfoo"
+     *   assert (context.ofNode("b") % 'w-t-${a.foo}') == "w-t-afoo"
+     * </code></pre>
+     *
+     * @example
+     * Variable expressions may contain default values in cases where the name
+     * doesn't exist or is bound to a falsey value
+     * <pre><code>
+     *   context.ofNode("a")["foo"] = ""
+     *   assert (context.ofNode("a") % 'w-t-${.foo|frak}') == "w-t-frak"
+     *   assert (context.ofNode("a") % 'w-t-${.bar|frak}') == "w-t-frak"
+     * </code></pre>
+     *
+     * @example
+     * List comprehensions can be embedded to dynamically construct lists of
+     * values derived from tokenizing a source string expression. A list
+     * comprehension's body (<code>$yield</code>) is given its own context
+     * namespace containing each token of <code>$in</code> bound to the name
+     * given as <code>$each</code>. The default <code>$delimiter</code> is a
+     * newline but can be any string.
+     * <pre><code>
+     *   context.ofNode("a")["foo"] = "bar|baz"
+     *
+     *   def fooList = [
+     *     $each: 'item',
+     *     $in: '${a.foo}|qux',
+     *     $delimiter: '|',
+     *     $yield: 'w-t-${.item}',
+     *   ]
+     *
+     *   assert context % fooList == [
+     *     'w-t-bar',
+     *     'w-t-baz',
+     *     'w-t-qux',
+     *   ]
+     * </code></pre>
+     *
+     * @example
+     * Two lists or maps can be merged using <code>$merge</code>
+     * <pre><code>
+     *   def fooList = [
+     *     $merge: ['foo', 'bar'],
+     *     $with: ['baz', 'qux'],
+     *   ]
+     *
+     *   assert context % fooList == [
+     *     'foo',
+     *     'bar',
+     *     'baz',
+     *     'qux',
+     *   ]
+     * </code></pre>
+     *
+     * @example
+     * The entries of a second map overwrite those of the first
+     * <pre><code>
+     *   def fooMap = [
+     *     $merge: [foo: 'x', bar: 'y'],
+     *     $with: [bar: 'z'],
+     *   ]
+     *
+     *   assert context % fooMap == [
+     *     foo: 'x',
+     *     bar: 'z',
+     *   ]
+     * </code></pre>
      */
     def interpolate(obj) {
       switch (obj) {
@@ -211,8 +283,28 @@ class ExecutionContext implements Serializable {
           // NOTE call to replaceAll does not rely on its sub matching feature as
           // Groovy CPS does not implement it correctly, and marking this method
           // as NonCPS causes it to only ever return the first substitution.
-          return obj.replaceAll(/\$\{[\w-]*\.[\w-]+\}/) {
-            this[it[2..-2]]
+          return obj.replaceAll(/\$\{[\w-]*\.[\w-]+(?:\|[^}]*)?\}/) {
+            def key = it[2..-2]
+
+            def defaultOpPos = key.indexOf('|')
+            def hasDefault = defaultOpPos > -1
+            def defaultValue = ""
+
+            if (hasDefault) {
+              defaultValue = key.substring(defaultOpPos + 1)
+              key = key.substring(0, defaultOpPos)
+            }
+
+            try {
+              return this[key] ?: defaultValue
+            } catch (NameNotFoundException e) {
+              // An unknown variable is not fatal if we have a default value
+              if (!hasDefault) {
+                throw e
+              }
+            }
+
+            return defaultValue
           }
         case Map:
           // Handle list comprehensions

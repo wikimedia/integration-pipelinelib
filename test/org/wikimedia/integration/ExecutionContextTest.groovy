@@ -153,6 +153,17 @@ class ExecutionContextTest extends GroovyTestCase {
     assert (context.ofNode("a") % true) == true
   }
 
+  void testInterpolate_defaultValue() {
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a"],
+    ]))
+
+    context.ofNode("a").bind("foo", "")
+
+    assert (context.ofNode("a") % '${.foo|default value}') == 'default value'
+    assert (context.ofNode("a") % '${.nonexistent|}') == ''
+  }
+
   void testInterpolate_listComprehension() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a", "b"],
