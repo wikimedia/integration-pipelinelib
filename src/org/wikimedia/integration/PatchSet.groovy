@@ -98,8 +98,8 @@ class PatchSet implements Serializable {
     def tags = options.get('tags', false)
 
     def extensions = [
-      [$class: 'WipeWorkspace'],
       [$class: 'CloneOption', depth: depth, shallow: shallow, noTags: !tags],
+      [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
     ]
 
     if (options.get('submodules', true)) {

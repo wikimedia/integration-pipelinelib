@@ -51,8 +51,8 @@ class PipelineBuilderTest extends GroovyTestCase {
           userRemoteConfigs: [ [ url: "git://server.example/foo-project", refspec: "foo-ref"] ],
           branches: [ [ name: "foo-commit" ] ],
           extensions: [
-            [ $class: "WipeWorkspace" ],
             [ $class: "CloneOption", shallow: true, depth: 1, noTags: true ],
+            [ $class: "CleanBeforeCheckout", deleteUntrackedNestedRepositories: true ],
             [ $class: "SubmoduleOption", disableSubmodules: true ],
           ]
         ]
