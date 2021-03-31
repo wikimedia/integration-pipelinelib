@@ -175,6 +175,20 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testCopyFilesFrom_sourceIsDirectory() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == """mkdir -p "\$(dirname 'dst/path')" && docker cp 'foo-container':'src/path/.' 'dst/path'"""
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.copyFilesFrom("foo-container", "src/path/", "/foo/../../dst/foo/../path")
+    }
+  }
+
   void testDeploy_checksConfigForChart() {
     def mockWorkflow = new MockFor(WorkflowScript)
 

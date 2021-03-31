@@ -203,6 +203,15 @@ class PipelineRunner implements Serializable {
   void copyFilesFrom(String container, String source, String destination) {
     destination = sanitizeRelativePath(destination)
 
+    // The logic that docker cp employs when it comes to source directories
+    // (whether to copy its contents or the directory itself into the
+    // destination) is truly heinous. We're normalizing the behavior to always
+    // copy source directory _contents_ by appending a `.`. The source is
+    // assumed to be a directory if it is terminated with a `/`.
+    if (source.endsWith('/')) {
+      source += '.'
+    }
+
     workflowScript.sh(sprintf(
       'mkdir -p "$(dirname %s)" && docker cp %s:%s %s',
       arg(destination), arg(container), arg(source), arg(destination)
