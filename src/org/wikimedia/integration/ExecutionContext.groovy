@@ -211,7 +211,7 @@ class ExecutionContext implements Serializable {
           // NOTE call to replaceAll does not rely on its sub matching feature as
           // Groovy CPS does not implement it correctly, and marking this method
           // as NonCPS causes it to only ever return the first substitution.
-          return obj.replaceAll(/\$\{\w*\.\w+\}/) {
+          return obj.replaceAll(/\$\{[\w-]*\.[\w-]+\}/) {
             this[it[2..-2]]
           }
         case Map:
