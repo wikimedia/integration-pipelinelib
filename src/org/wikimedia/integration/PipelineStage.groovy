@@ -498,7 +498,7 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void build(ws, runner) {
-    runner.withBlubberConfig(context % config.blubberfile) {
+    runner.withBlubberConfig(context % (config.blubberfile ?: pipeline.blubberfile)) {
       context["imageID"] = runner.build(
         context % config.build.variant,
         context["setup.imageLabels"],

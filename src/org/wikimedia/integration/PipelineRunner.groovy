@@ -597,11 +597,7 @@ class PipelineRunner implements Serializable {
    * inline Blubber configuration.
    */
   def withBlubberConfig(bc, Closure c) {
-    if (!bc) {
-      return c()
-    }
-
-    if (bc instanceof String) {
+    if (bc instanceof String || bc instanceof GString) {
       def prevConfig = blubberConfig
 
       try {

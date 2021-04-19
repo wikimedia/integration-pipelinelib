@@ -128,7 +128,6 @@ class Pipeline implements Serializable {
    */
   PipelineRunner runner(ws) {
     def settings = [
-      blubberConfig: blubberfile,
       kubeConfig: "/etc/kubernetes/ci-staging.config",
     ]
 
