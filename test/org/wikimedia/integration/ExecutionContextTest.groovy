@@ -6,6 +6,17 @@ import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.ExecutionContext
 
 class ExecutionContextTest extends GroovyTestCase {
+  void testGetAllKeys() {
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a", "b"],
+    ]))
+
+    context.ofNode("a").bind("foo", "x")
+    context.ofNode("b").bind("bar", "x")
+
+    assert context.getAllKeys() == ["a.foo", "b.bar"]
+  }
+
   void testNodeContextBindings() {
     /*
      *  a

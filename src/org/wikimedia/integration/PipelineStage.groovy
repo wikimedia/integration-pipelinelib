@@ -2,6 +2,7 @@ package org.wikimedia.integration
 
 import com.cloudbees.groovy.cps.NonCPS
 
+import static org.wikimedia.integration.Utility.merge
 import static org.wikimedia.integration.Utility.timestampLabel
 
 import org.wikimedia.integration.ExecutionContext
@@ -244,8 +245,29 @@ class PipelineStage implements Serializable {
         dcfg.deploy.chart = [:]
       }
 
-      dcfg.deploy.chart.name =  dcfg.deploy.chart.name ?: "\${${SETUP}.projectShortName}"
+      dcfg.deploy.chart.name = dcfg.deploy.chart.name ?: "\${${SETUP}.projectShortName}"
       dcfg.deploy.chart.version = dcfg.deploy.chart.version ?: ""
+    }
+
+    if (dcfg.notify) {
+      dcfg.notify = dcfg.notify.clone()
+
+      if (dcfg.notify.email) {
+        dcfg.notify.email = dcfg.notify.email.clone()
+
+        switch (dcfg.notify.email.to) {
+          case String:
+          case GString:
+            dcfg.notify.email.to = [dcfg.notify.email.to]
+        }
+
+        dcfg.notify.email.subject = dcfg.notify.email.subject ?:
+          "[Pipeline] \${${SETUP}.projectShortName} \${${SETUP}.pipeline}/\${.stage} failed"
+        dcfg.notify.email.body = dcfg.notify.email.body ?: '''
+          |Pipeline ${setup.pipeline} for project ${setup.project} failed during
+          |stage ${.stage}. See the log for details: ${setup.logURL}
+        '''.stripMargin('|').trim()
+      }
     }
 
     dcfg
@@ -276,15 +298,20 @@ class PipelineStage implements Serializable {
         teardown(ws, runner)
         break
       default:
-        ws.echo("running steps in ${pipeline.directory} with config: ${config.inspect()}")
+        try {
+          ws.echo("running steps in ${pipeline.directory} with config: ${config.inspect()}")
 
-        ws.dir(pipeline.directory) {
-          for (def stageStep in STEPS) {
-            if (config[stageStep]) {
-              ws.echo("step: ${stageStep}, config: ${config.inspect()}")
-              this."${stageStep}"(ws, runner)
+          ws.dir(pipeline.directory) {
+            for (def stageStep in STEPS) {
+              if (config[stageStep]) {
+                ws.echo("step: ${stageStep}, config: ${config.inspect()}")
+                this."${stageStep}"(ws, runner)
+              }
             }
           }
+        } catch (ex) {
+          notify(ws, runner)
+          throw ex
         }
       }
 
@@ -322,6 +349,12 @@ class PipelineStage implements Serializable {
    *
    * <h3>Exports</h3>
    * <dl>
+   * <dt><code>${setup.pipeline}</code></dt>
+   * <dd>Pipeline name.</dd>
+   *
+   * <dt><code>${setup.logURL}</code></dt>
+   * <dd>URL to the build log.</dd>
+   *
    * <dt><code>${setup.project}</code></dt>
    * <dd>ZUUL_PROJECT parameter value if getting a patchset from Zuul.</dd>
    * <dd>Jenkins JOB_NAME value otherwise.</dd>
@@ -362,6 +395,9 @@ class PipelineStage implements Serializable {
    * </dl>
    */
   void setup(ws, runner) {
+    context["pipeline"] = pipeline.name
+    context["logURL"] = "${ws.env.BUILD_URL}console"
+
     def imageLabels = [
       "jenkins.job": ws.env.JOB_NAME,
       "jenkins.build": ws.env.BUILD_ID,
@@ -850,6 +886,51 @@ class PipelineStage implements Serializable {
   void exports(ws, runner) {
     config.exports.each { export, value ->
       context[export] = context % value
+    }
+  }
+
+  /**
+   * Notifies folks of stage failure according to the stage or pipeline level
+   * configuration.
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>notify</code></dt>
+   * <dd>Notify recipients in the event this stage fails.
+   * <dd>
+   *   <dl>
+   *     <dt>email</dt>
+   *     <dd>Email a number of recipients.</dd>
+   *     <dd>
+   *       <dl>
+   *       <dt>to</dt>
+   *       <dd>List of email recipients.</dd>
+   *
+   *       <dt>subject</dt>
+   *       <dd>Email subject line.</dd>
+   *       <dd>Default: <code>[Pipeline] ${setup.projectShortName} ${setup.pipeline}/${.stage} failed</code></dd>
+   *
+   *       <dt>body</dt>
+   *       <dd>Email body.</dd>
+   *       <dd>Default: A short message indicating which stage failed and a link
+   *       to the build log URL.</dd>
+   *       </dl>
+   *     </dd>
+   *   </dl>
+   * </dd>
+   * </dl>
+   */
+  void notify(ws, runner) {
+    if (config.notify || pipeline.notify) {
+      def notify = merge(pipeline.notify, config.notify)
+
+      if (notify.email) {
+        ws.mail(
+          to: (context % notify.email.to).join(','),
+          subject: context % notify.email.subject,
+          body: context % notify.email.body
+        )
+      }
     }
   }
 

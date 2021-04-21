@@ -84,3 +84,20 @@ pipelines:
         build: sh-local
         run:
           arguments: ['[[ $(cat bar/greeting) == "hi" ]]']
+
+# The following pipeline can be used to manually test notification upon failure
+#
+#  test-notify:
+#    notify:
+#      email:
+#        to: [jenkins@localhost]
+#    blubberfile: blubber.yaml
+#    stages:
+#      - name: test
+#        build: bash
+#        run:
+#          arguments: ['false']
+#        notify:
+#          email:
+#            subject: >-
+#              Failure notification ${setup.pipeline}/${.stage}

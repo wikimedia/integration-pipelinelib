@@ -16,6 +16,7 @@ RUN apt-get update && \
       ca-certificates \
       curl \
       gnupg2 \
+      postfix \
       socat \
       software-properties-common \
       sudo \
@@ -26,14 +27,6 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
-
-# install a custom entrypoint that can ensure jenkins has access to docker via
-# a socket proxy
-COPY systemtests/jenkins/bin/start-docker-proxy /usr/local/bin/start-docker-proxy
-COPY systemtests/jenkins/bin/entrypoint /usr/local/bin/entrypoint
-
-COPY systemtests/jenkins/bin/stub-script /usr/local/bin/docker-pusher
-COPY systemtests/jenkins/sudoers /etc/sudoers.d/jenkins
 
 USER jenkins
 
@@ -47,6 +40,15 @@ COPY systemtests/jenkins/ref/* /usr/share/jenkins/ref/
 COPY systemtests/jenkins/init.groovy.d/*.groovy /usr/share/jenkins/ref/init.groovy.d/
 
 USER root
+
+# install a custom entrypoint that can ensure jenkins has access to docker via
+# a socket proxy
+COPY systemtests/jenkins/bin/start-docker-proxy /usr/local/bin/start-docker-proxy
+COPY systemtests/jenkins/bin/entrypoint /usr/local/bin/entrypoint
+
+# make test repo and the local copy of pipelinelib accessible as a plugin via git
+COPY systemtests/jenkins/bin/stub-script /usr/local/bin/docker-pusher
+COPY systemtests/jenkins/sudoers /etc/sudoers.d/jenkins
 
 RUN git config --global user.name docker && \
     git config --global user.email docker@docker.invalid

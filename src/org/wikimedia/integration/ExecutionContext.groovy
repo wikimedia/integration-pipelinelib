@@ -35,15 +35,11 @@ class ExecutionContext implements Serializable {
    * Returns the names of all values bound by node contexts.
    */
   List getAllKeys() {
-    def keys = []
-
-    for (def ns in globals) {
-      for (def key in globals[ns]) {
-        keys.add("${ns}.${key}")
+    globals.collectMany { ns, bindings ->
+      bindings.collect { key, value ->
+        "${ns}.${key}"
       }
     }
-
-    keys
   }
 
   /**
@@ -129,7 +125,7 @@ class ExecutionContext implements Serializable {
       throws NameNotFoundException {
 
       if (!globals[node].containsKey(key)) {
-        throw new NameNotFoundException(ns: node, key: key)
+        throw new NameNotFoundException(ns: node, key: key, available: getAllKeys())
       }
 
       globals[node][key]
@@ -147,7 +143,7 @@ class ExecutionContext implements Serializable {
       }
 
       if (!globals[ancestorNode].containsKey(key)) {
-        throw new NameNotFoundException(ns: ancestorNode, key: key)
+        throw new NameNotFoundException(ns: ancestorNode, key: key, available: getAllKeys())
       }
 
       globals[ancestorNode][key]
@@ -372,11 +368,11 @@ class ExecutionContext implements Serializable {
   }
 
   class NameNotFoundException extends GroovyException {
-    def ns, key
+    def ns, key, available
 
     @NonCPS
     String getMessage() {
-      "no value bound for '${ns}.${key}'; all bound names are: ${getAllKeys().join(", ")}"
+      "no value bound for '${ns}.${key}'; all available variables are: ${available}"
     }
   }
 

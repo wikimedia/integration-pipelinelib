@@ -1,4 +1,5 @@
 #!/bin/sh
 
+sudo /usr/sbin/postfix start
 sudo /usr/local/bin/start-docker-proxy &
 exec /usr/local/bin/jenkins.sh

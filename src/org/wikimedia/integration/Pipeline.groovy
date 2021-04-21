@@ -24,6 +24,9 @@ import org.wikimedia.integration.PipelineRunner
  *       depth: 2                                     # Git fetch depth
  *       submodules: true                             # Checkout submodules
  *       tags: true                                   # Fetch all remote tags
+ *     notify:
+ *       email:
+ *         to: [engprod@lists.wikimedia.org]          # email failures
  *     execution:                                     # directed graph of stages to run
  *       - [unit, candidate]                          # each arc is represented horizontally
  *       - [lint, candidate]
@@ -69,6 +72,7 @@ class Pipeline implements Serializable {
   String blubberfile
   String directory
   Map fetchOptions
+  Map notify
 
   private static String baseNodeLabel = "pipelinelib"
   private Map stagesConfig
@@ -83,9 +87,10 @@ class Pipeline implements Serializable {
     blubberfile = config.blubberfile ?: "${name}/blubber.yaml"
     directory = config.directory ?: "."
     fetchOptions = config.fetch ?: [:]
+    notify = config.notify ?: [:]
     runnerOverrides = overrides
 
-    stagesConfig = config.stages.collectEntries{
+    stagesConfig = config.stages.collectEntries {
       [(it.name): PipelineStage.defaultConfig(it)]
     }
 

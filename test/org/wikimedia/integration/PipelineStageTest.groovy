@@ -227,6 +227,20 @@ class PipelineStageTest extends GroovyTestCase {
     ]
   }
 
+  void testDefaultConfig_notify() {
+    def cfg = [
+      notify: [
+        email: [
+          to: "foo@an.example",
+        ]
+      ]
+    ]
+
+    def dcfg = PipelineStage.defaultConfig(cfg)
+
+    assert dcfg.notify.email.to == ["foo@an.example"]
+  }
+
   void testBuild() {
     def pipeline = new Pipeline("foo", [
       stages: [
