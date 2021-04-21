@@ -258,25 +258,33 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.withBlubberConfig { cfg, c ->
-      assert cfg == [
-        version: "v4",
-        base: "foo",
-        variants: [
-          foo: [:]
-        ],
-      ]
+    mockRunner.demand.with {
+      withBlubberConfig { cfg, c ->
+        assert cfg == [
+          version: "v4",
+          base: "foo",
+          variants: [
+            foo: [:]
+          ],
+        ]
 
-      c()
-    }
+        c()
+      }
 
-    mockRunner.demand.build { variant, labels, context, excludes ->
-      assert variant == "foovariant"
-      assert labels == [foo: "foolabel", bar: "barlabel"]
-      assert context == URI.create("foo/dir")
-      assert excludes == [".git", "foo/docs/*"]
+      build { variant, labels, context, excludes ->
+        assert variant == "foovariant"
+        assert labels == [foo: "foolabel", bar: "barlabel"]
+        assert context == URI.create("foo/dir")
+        assert excludes == [".git", "foo/docs/*"]
 
-      "foo-image-id"
+        "foo-image-id"
+      }
+
+      assignLocalName { imageID ->
+        assert imageID == "foo-image-id"
+
+        "localhost/plib-image-randomfoo"
+      }
     }
 
     mockRunner.use {
@@ -287,6 +295,7 @@ class PipelineStageTest extends GroovyTestCase {
     }
 
     assert stage.context["imageID"] == "foo-image-id"
+    assert stage.context["imageLocalName"] == "localhost/plib-image-randomfoo"
   }
 
   void testCopy() {

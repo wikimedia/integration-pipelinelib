@@ -132,6 +132,21 @@ class PipelineRunner implements Serializable {
   }
 
   /**
+   * Assigns to the given image a random name that can be used as a reference
+   * for other applications in the same pipeline where an ID is not suitable,
+   * such as use as a base image in the build of a subsequent stage.
+   *
+   * @param imageID ID of image to name.
+   */
+  String assignLocalName(imageID) {
+    def imageName = "localhost/plib-image-${randomAlphanum(8)}"
+
+    workflowScript.sh("docker tag ${arg(imageID)} ${arg(imageName)}")
+
+    imageName
+  }
+
+  /**
    * Builds the given image variant and returns an ID for the resulting image.
    *
    * @param variant Image variant name that should be built.

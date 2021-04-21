@@ -38,6 +38,20 @@ class PipelineRunnerTest extends GroovyTestCase {
     new PipelineRunner(new WorkflowScript(), configPath: "foo")
   }
 
+  void testAssignLocalName() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker tag 'foo-image-id' 'localhost/plib-image-randomfoo'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      assert runner.assignLocalName('foo-image-id') == 'localhost/plib-image-randomfoo'
+    }
+  }
+
   void testGetConfigFile() {
     def pipeline = new PipelineRunner(new WorkflowScript(), configPath: "foo")
 

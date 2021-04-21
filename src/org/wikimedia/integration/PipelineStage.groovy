@@ -495,6 +495,12 @@ class PipelineStage implements Serializable {
    * <dl>
    * <dt><code>${[stage].imageID}</code></dt>
    * <dd>Image ID of built image.</dd>
+   *
+   * <dt><code>${[stage].imageLocalName}</code></dt>
+   * <dd>Randomly assigned image name for use within subsequent steps or
+   * stages where an ID is insufficient. For example, if you want to build
+   * another image that references this one as a base image, you must
+   * reference the name not an ID.</dd>
    * </dl>
    */
   void build(ws, runner) {
@@ -506,6 +512,8 @@ class PipelineStage implements Serializable {
         context % config.build.excludes
       )
     }
+
+    context["imageLocalName"] = runner.assignLocalName(context["imageID"])
   }
 
   /**
