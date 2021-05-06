@@ -137,6 +137,7 @@ class PipelineStage implements Serializable {
 
       dcfg.build.variant = dcfg.build.variant ?: '${.stage}'
       dcfg.build.context = dcfg.build.context ?: '.'
+      dcfg.build.imagePullPolicy = dcfg.build.imagePullPolicy ?: 'always'
     }
 
     if (dcfg.run) {
@@ -495,7 +496,7 @@ class PipelineStage implements Serializable {
    *     href="https://docs.docker.com/engine/reference/commandline/build/">supported
    *     by <code>docker build</code></a></dd>
    *     <dd>Default: <code>"."</code></dd>
-
+   *
    *     <dt><code>excludes</code></dt>
    *     <dd>Patterns of files/directories to exclude from the build context.
    *     Providing this will result in any local <code>.dockerignore</code>
@@ -503,6 +504,11 @@ class PipelineStage implements Serializable {
    *     the context is a local directory. Patterns must be <a
    *     href="https://docs.docker.com/engine/reference/builder/#dockerignore-file">valid
    *     Docker ignore rules</a>.</dd>
+   *
+   *     <dt><code>imagePullPolicy</code></dt>
+   *     <dd>Must be <code>"always"</code> or <code>"never"</code>.  
+   *      If <code>"always"</code>, --pull will be passed to <code>docker build</code>.</dd>
+   *     <dd>Default: <code>"always"</code></dd>
    *   </dl>
    * </dd>
    * </dl>
@@ -545,7 +551,8 @@ class PipelineStage implements Serializable {
         context % config.build.variant,
         context["setup.imageLabels"],
         URI.create(context % config.build.context),
-        context % config.build.excludes
+        context % config.build.excludes,
+        context % config.build.imagePullPolicy
       )
     }
 

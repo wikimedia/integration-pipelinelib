@@ -22,6 +22,7 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: '${.stage}',
         context: '.',
+        imagePullPolicy: 'always'
       ],
       run: [
         image: '${.imageID}',
@@ -46,6 +47,7 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: '${.stage}',
         context: ".",
+        imagePullPolicy: 'always'
       ],
     ]
 
@@ -61,8 +63,27 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         context: ".",
+        imagePullPolicy: 'always'
       ],
     ]
+
+    cfg = [
+      name: "foo",
+      build: [
+        variant: "bar",
+        imagePullPolicy: "never"
+      ],
+    ]
+    
+    assert PipelineStage.defaultConfig(cfg) == [
+      name: "foo",
+      build: [
+        variant: "bar",
+        context: ".",
+        imagePullPolicy: 'never'
+      ],
+    ]
+
   }
 
   void testDefaultConfig_run() {
@@ -77,6 +98,7 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         context: ".",
+        imagePullPolicy: 'always'
       ],
 
       // run: true means run the built image
@@ -285,11 +307,12 @@ class PipelineStageTest extends GroovyTestCase {
         c()
       }
 
-      build { variant, labels, context, excludes ->
+      build { variant, labels, context, excludes, imagePullPolicy ->
         assert variant == "foovariant"
         assert labels == [foo: "foolabel", bar: "barlabel"]
         assert context == URI.create("foo/dir")
         assert excludes == [".git", "foo/docs/*"]
+        assert imagePullPolicy == "always"
 
         "foo-image-id"
       }

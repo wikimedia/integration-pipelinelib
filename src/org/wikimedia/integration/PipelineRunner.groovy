@@ -155,8 +155,10 @@ class PipelineRunner implements Serializable {
    * (current directory).
    * @param excludes Files/directories to exclude from build context. This
    * will be used to overwrite any existing .dockerignore prior to the build.
+   * @param imagePullPolicy If "always", pass --pull to docker build.
    */
-  String build(String variant, Map labels = [:], URI context = URI.create("."), List excludes = null) {
+  String build(String variant, Map labels = [:], URI context = URI.create("."), List excludes = null,
+               String imagePullPolicy = "always") {
     def cfg = getConfigFile(blubberConfig)
 
     if (!workflowScript.fileExists(cfg)) {
@@ -191,8 +193,9 @@ class PipelineRunner implements Serializable {
         def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
 
         workflowScript.sh(sprintf(
-          'docker build --pull --force-rm=true %s --iidfile %s --file %s %s',
-          labelFlags, arg(imageIDFile), arg(dockerfile), arg(context)
+          'docker build %s--force-rm=true %s --iidfile %s --file %s %s',
+            imagePullPolicy == "always" ? "--pull " : "",
+            labelFlags, arg(imageIDFile), arg(dockerfile), arg(context),
         ))
 
         def imageID = workflowScript.readFile(imageIDFile).trim()
