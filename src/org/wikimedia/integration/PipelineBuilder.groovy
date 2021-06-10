@@ -44,7 +44,6 @@ class PipelineBuilder implements Serializable {
    *
    * @param ws Jenkins Workflow Script (`this` when writing a Jenkinsfile)
    * @param pipelineName Only build/run the given pipeline.
-   * @param runnerOverrides Additional {@link PipelineRunner} properties to set.
    */
   void build(ws, pipelineName = "") {
     def config
