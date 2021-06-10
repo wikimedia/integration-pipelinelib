@@ -282,7 +282,7 @@ class PipelineStage implements Serializable {
   }
 
   /**
-   * Constructs and retruns a closure for this pipeline stage using the given
+   * Constructs and returns a closure for this pipeline stage using the given
    * Jenkins workflow script object.
    */
   Closure closure(ws) {
