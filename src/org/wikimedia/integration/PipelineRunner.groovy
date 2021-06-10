@@ -115,6 +115,11 @@ class PipelineRunner implements Serializable {
    def allowedCredentials = [:]
 
   /**
+   * A list of allowed trigger jobs for this pipeline
+   */
+   def allowedTriggerJobs = []
+
+  /**
    * Jenkins Pipeline Workflow context.
    */
   final def workflowScript
@@ -584,6 +589,20 @@ class PipelineRunner implements Serializable {
           throw ex
         }
       }
+    }
+  }
+
+  /**
+   * Trigger a downstream job on the local Jenkins server
+   *
+   * @param options for the build step
+   */
+  void triggerJob(Map options) {
+    if (allowedTriggerJobs.contains(options.job)) {
+      // Xref: https://www.jenkins.io/doc/pipeline/steps/pipeline-build-step/
+      workflowScript.build(options)
+    } else {
+      throw new RuntimeException("Invalid trigger job '${options.job}'. Allowed trigger jobs: ${allowedTriggerJobs.inspect()}")
     }
   }
 

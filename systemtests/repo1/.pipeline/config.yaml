@@ -20,6 +20,10 @@ pipelines:
       - name: test
         exports:
           foo: '${setup.timestamp}-${.stage}'
+        trigger:
+          name: totally-triggered
+          parameters:
+            TRIGGER: 'spiders-from-${setup.timestamp}-${.stage}'
   test-build-options:
     blubberfile: blubber.yaml
     stages:

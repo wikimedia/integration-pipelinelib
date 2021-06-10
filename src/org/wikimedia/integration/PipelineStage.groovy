@@ -14,7 +14,7 @@ import java.net.URI
 class PipelineStage implements Serializable {
   static final String SETUP = 'setup'
   static final String TEARDOWN = 'teardown'
-  static final List STEPS = ['build', 'run', 'copy', 'publish', 'promote', 'deploy', 'exports']
+  static final List STEPS = ['build', 'run', 'copy', 'publish', 'promote', 'deploy', 'exports', 'trigger']
   static final URI CHARTSREPO = URI.create('https://gerrit.wikimedia.org/r/operations/deployment-charts.git')
 
   Pipeline pipeline
@@ -938,6 +938,51 @@ class PipelineStage implements Serializable {
           body: context % notify.email.body
         )
       }
+    }
+  }
+
+  /**
+   * Trigger a downstream job on the local Jenkins server
+   *
+   * <h3>Configuration</h3>
+   * <dl>
+   * <dt><code>trigger</code></dt>
+   * <dd>
+   *   <dl>
+   *     <dt>name</dt>
+   *     <dd>Name of the downstream job</dd>
+   *     <dt>parameters</dt>
+   *     <dd>Optional: Object specifying parameters to pass to the job</dd>
+   *     <dt>progagate</dt>
+   *     <dd>Optional: Boolean. If <code>true</code> (the default), then the result of this
+   *         step is that of the downstream build (e.g., success, unstable, failure,
+   *         not built, or aborted). If <code>false</code>, then this step succeeds
+   *         even if the downstream build is unstable, failed, etc.
+   *     </dd>
+   *     <dt>wait</dt>
+   *     <dd>Optional: Boolean. If <code>true</code>, wait for completion of the downstream
+   *         build before completing this step.  Default: <code>false></code>
+   *     </dd>
+   *   </dl>
+   * </dd>
+   *
+   */
+  void trigger(ws, runner) {
+    def jobname = config.trigger.name
+
+    if (jobname) {
+      def params = config.trigger.parameters.collect { key, val -> [$class: 'StringParameterValue', name: key, value: context % val ] }
+
+      def propagate = (config.trigger.propagate == false ? false : true)
+      def wait = (config.trigger.wait == true ? true : false)
+
+      // Xref: https://www.jenkins.io/doc/pipeline/steps/pipeline-build-step/
+      runner.triggerJob([
+        job: jobname,
+        parameters: params,
+        propagate: propagate,
+        wait: wait,
+      ])
     }
   }
 

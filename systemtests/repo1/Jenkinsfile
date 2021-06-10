@@ -1,4 +1,6 @@
 @Library('pipelinelib') import org.wikimedia.integration.*
 
-def builder = new PipelineBuilder(".pipeline/config.yaml")
+def triggerJobs = ['totally-triggered']
+
+def builder = new PipelineBuilder([allowedTriggerJobs: triggerJobs], ".pipeline/config.yaml")
 builder.build(this, params.PLIB_PIPELINE)
