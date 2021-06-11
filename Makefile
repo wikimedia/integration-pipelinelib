@@ -90,3 +90,8 @@ ifeq (1,$(DEBUG))
 endif
 
 	$(DOCKER_STOP)
+
+# Kill all containers started by the systemtest target.  This approach is
+# faster than $(DOCKER_STOP_ALL) (doesn't wait for 10 seconds)
+kill:
+	for id in $$(docker ps -q -f label=$(DOCKER_LABEL)); do docker rm -f $$id; done
