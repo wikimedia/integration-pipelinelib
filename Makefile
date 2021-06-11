@@ -49,7 +49,7 @@ endif
 systemtest:
 	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
 	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
-	$(eval BUILD_OUTPUT := $(shell mktemp))
+	$(eval BUILD_OUTPUT := $(shell mktemp -t pipelinelib-systemtest.XXXXXX))
 
 	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
 	$(DOCKER_RUN) -d \
@@ -80,6 +80,8 @@ systemtest:
 	    tail -n +$$(wc -l $(BUILD_OUTPUT) | awk '{ print $$1 }') | \
 	    tee -a $(BUILD_OUTPUT); \
 	done
+
+	rm -f $(BUILD_OUTPUT)
 
 ifeq (1,$(DEBUG))
 	@echo "DEBUG: Build $(JENKINS_URL)/job/repo1/1 completed"
