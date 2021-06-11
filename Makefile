@@ -74,6 +74,8 @@ systemtest:
 	  sleep 1; \
 	done
 
+	@# FIXME: No console text will be seen at all if the job finishes building by
+	@# the time we check its builing status here.
 	@while curl -s $(JENKINS_URL)/job/repo1/1/api/json | grep -q '"building":true'; do \
 	  sleep 1; \
 	  curl -s $(JENKINS_URL)/job/repo1/1/consoleText | \
@@ -84,9 +86,16 @@ systemtest:
 	rm -f $(BUILD_OUTPUT)
 
 ifeq (1,$(DEBUG))
-	@echo "DEBUG: Build $(JENKINS_URL)/job/repo1/1 completed"
+	@echo "DEBUG: Build $(JENKINS_URL)/job/repo1/1 status: $$(curl -s $(JENKINS_URL)/job/repo1/1/api/json | jq -r .result)"
 	@echo -n "DEBUG: Press <enter> to continue: "
 	@read
+else
+	@# Verify that the build was successful.  Note that if this test fails, the
+	@# container will remain running
+	@if [ $$(curl -s $(JENKINS_URL)/job/repo1/1/api/json | jq -r .result) != "SUCCESS" ]; then \
+	  echo "Build $(JENKINS_URL)/job/repo1/1 status: $$(curl -s $(JENKINS_URL)/job/repo1/1/api/json | jq -r .result)" ; \
+	  false ; \
+	fi
 endif
 
 	$(DOCKER_STOP)
