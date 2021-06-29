@@ -830,9 +830,16 @@ class PipelineStage implements Serializable {
    *       </dl>
    *     </dd>
    *
+   *     <dt>tag</dt>
+   *     <dd>Tag of the registered image to deploy</dd>
+   *     <dd>Default: <code>${.imageTag}</code></dd>
+   *
    *     <dt>test</dt>
    *     <dd>Whether to run <code>helm test</code> against this deployment</dd>
    *     <dd>Default: <code>true</code></dd>
+   *
+   *     <dt>timeout</dt>
+   *     <dd>Timeout for <code>helm install</code></dd>
    *
    *     <dt>overrides</dt>
    *     <dd>Additional values provided to the Helm chart.</dd>

@@ -1,0 +1,471 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://wikitech.wikimedia.org/wiki/PipelineLib/Schema/V0
+title: Configuration for a PipelineLib workflow
+description: >
+  PipelineLib is a container based CI workflow specification and engine. It
+  executes any number of discrete CI tasks—building images, running tests,
+  deploying images, etc.—based on a simple YAML file provided in each project
+  repo. It is similar in spirit to .travis-ci.yml and .gitlab-ci.yml for
+  GitHub and GitLab, but provides constructs specific to WMF needs and
+  supports a more advanced DAG based execution scheme.
+type: object
+required: [pipelines]
+properties:
+  pipelines:
+    type: object
+    description: A number of uniquely named user-defined pipelines.
+    additionalProperties:
+      type: object
+      description: >-
+        A unique pipeline workflow comprising a number of stages and an
+        execution graph.
+      required: [stages]
+      properties:
+        blubberfile:
+          $ref: '#/definitions/blubberfile'
+        directory:
+          type: string
+          description: >-
+            Working directory for stage execution relative to the project's
+            root.
+        fetch:
+          $ref: '#/definitions/fetch'
+        execution:
+          type: array
+          description: >-
+            Execution graph (directed acyclic graph) representing lists of
+            stages that should run adjacent to one another.
+          items:
+            type: array
+            uniqueItems: true
+            items:
+              type: string
+              description: Stage name.
+        stages:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/definitions/stage'
+
+definitions:
+  blubberfile:
+    oneOf:
+      - type: object
+        description: Inline Blubber configuration.
+      - type: string
+        description: >-
+          Path to an external Blubber configuration file relative to the
+          project's .pipeline/ directory. By default,
+          .pipeline/[pipeline]/blubber.yaml is used.
+  fetch:
+    type: object
+    description: Git fetch options.
+    additionalProperties: false
+    properties:
+      shallow:
+        type: boolean
+        description: Whether the fetch should be shallow.
+        default: true
+      depth:
+        type: integer
+        description: Shallow depth.
+        default: 20
+      submodules:
+        type: boolean
+        description: >-
+          Whether submodules should be recursively updated following checkout.
+        default: true
+      tags:
+        type: boolean
+        description: Whether all remote tags should be fetched.
+        default: false
+  list-comprehension:
+    type: object
+    description: List comprehension.
+    examples:
+      - $each: number
+        $in: '1|2|3'
+        $delimiter: '|'
+        $yield: '${.number} fish'
+      - $each: [number1, number2]
+        $in: '1 2|2 3|3 4'
+        $delimiter: '|'
+        $yield: '${.number1} and ${.number2}'
+    required: [$each]
+    additionalProperties: false
+    properties:
+      $each:
+        description: Variable to bind with each value from $in.
+        oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+      $in:
+        type: string
+        description: String value to process.
+      $delimiter:
+        type: string
+        description: Delimiter that separates values in $in.
+      $yield:
+        description: Item in the resulting list in which $each variables are substituted.
+  merge-expression:
+    type: object
+    description: Merge expression.
+    examples:
+      - $merge: [1, 2, 3]
+        $with: [4, 5, 6]
+      - $merge: 'foo'
+        $with: 'bar'
+      - $merge: [one: 'fish', two: 'fish']
+        $with: [red: 'fish', blue: 'fish']
+    required: [$merge, $with]
+    additionalProperties: false
+    properties:
+      $merge:
+        type: object
+        description: Left hand side operand.
+      $with:
+        type: object
+        description: Right hand side operand.
+  stage:
+    type: object
+    description: Stage of execution.
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Stage name.
+      blubberfile:
+        $ref: '#/definitions/blubberfile'
+      build:
+        oneOf:
+          - type: string
+            description: >-
+              Short-hand configuration providing just the variant name.
+          - type: object
+            description: >-
+              Step for building a Blubber defined container image.
+            additionalProperties: false
+            properties:
+              variant:
+                description: >-
+                  Image variant defined in the Blubber configuration.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+              context:
+                description: Image build context directory or URL.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+              excludes:
+                description: >-
+                  List of files from the build context to exclude from copy
+                  operations.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - $ref: '#/definitions/list-comprehension'
+                  - type: array
+                    items:
+                      type: string
+      run:
+        oneOf:
+          - type: boolean
+            description: >-
+              Short-hand configuration to run the image built in this stage
+              with no arguments, additional environment variables, or bound
+              credentials.
+          - type: object
+            description: >-
+              Step for running a container using an image built in a previous
+              stage.
+            additionalProperties: false
+            properties:
+              image:
+                description: >-
+                  A valid image ID (SHA256). Defaults to the ID of the image
+                  built by this stage.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+                    default: '${.imageID}'
+              arguments:
+                description: >-
+                  List of run-time arguments passed to the variant's entry
+                  point.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - $ref: '#/definitions/list-comprehension'
+                  - type: array
+                    items:
+                      type: string
+              env:
+                description: >-
+                  Environment variables to inject into the container at run
+                  time.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: object
+                    additionalProperties:
+                      oneOf:
+                        - $ref: '#/definitions/merge-expression'
+                        - type: string
+              credentials:
+                description: >-
+                  List of Jenkins credentials to inject into the container as
+                  environment variables at run time.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - $ref: '#/definitions/list-comprehension'
+                  - type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        id:
+                          description: The id of the credentials in Jenkins.
+                          oneOf:
+                            - $ref: '#/definitions/merge-expression'
+                            - type: string
+                        name:
+                          description: The name for the environment variable.
+                          oneOf:
+                            - $ref: '#/definitions/merge-expression'
+                            - type: string
+              tail:
+                type: integer
+                description: >-
+                  Save this many lines of trailing output as ${[stage].output}.
+                default: 0
+      copy:
+        description: >-
+          List of files/directories to copy from previously run variants to
+          the local build context.
+        oneOf:
+          - $ref: '#/definitions/merge-expression'
+          - $ref: '#/definitions/list-comprehension'
+          - type: array
+            default: []
+            items:
+              oneOf:
+                - $ref: '#/definitions/merge-expression'
+                - type: object
+                  required: [source]
+                  additionalProperties: false
+                  properties:
+                    from:
+                      description: Stopped container from which to copy files.
+                      oneOf:
+                        - $ref: '#/definitions/merge-expression'
+                        - type: string
+                          default: '${.container}'
+                    source:
+                      description: >-
+                        Globbed file path resolving any number of files
+                        relative to the container's root (/) directory.
+                      oneOf:
+                        - $ref: '#/definitions/merge-expression'
+                        - type: string
+                    destination:
+                      description: >-
+                        Destination file path relative to the local context.
+                        Defaults to the source path.
+                      oneOf:
+                        - $ref: '#/definitions/merge-expression'
+                        - type: string
+                - type: string
+                  description: >-
+                    Short-hand providing just the source paths for files from
+                    the container that ran in this stage.
+      publish:
+        type: object
+        additionalProperties: false
+        properties:
+          image:
+            oneOf:
+              - type: boolean
+              - type: object
+                description: Publish an image to the WMF Docker registry.
+                additionalProperties: false
+                properties:
+                  id:
+                    description: >-
+                      ID of a previously built image variant. Defaults to the
+                      image built by this stage.
+                    oneOf:
+                      - $ref: '#/definitions/merge-expression'
+                      - type: string
+                        default: '${.imageID}'
+                  name:
+                    description: >-
+                      Published name of the image. Note that this base name
+                      will be prefixed with the globally configured
+                      registry/repository name before being pushed. Defaults
+                      to the project name.
+                    oneOf:
+                      - $ref: '#/definitions/merge-expression'
+                      - type: string
+                        default: '${setup.project}'
+                  tag:
+                    description: >-
+                      Primary tag under which the image is published.
+                    oneOf:
+                      - $ref: '#/definitions/merge-expression'
+                      - type: string
+                        default: '${setup.timestamp}-${.stage}'
+                  tags:
+                    description: >-
+                      Additional tags under which to publish the image.
+                      Defaults to the git tag if a new one has been pushed.
+                    oneOf:
+                      - $ref: '#/definitions/merge-expression'
+                      - $ref: '#/definitions/list-comprehension'
+                      - type: array
+                        items:
+                          oneOf:
+                            - $ref: '#/definitions/merge-expression'
+                            - type: string
+      deploy:
+        type: object
+        description: >-
+          Deploy an image built by previous stages or this stage's actions to
+          the staging cluster.
+        required: [chart]
+        additionalProperties: false
+        properties:
+          image:
+            description: Reference to a previously published image.
+            oneOf:
+              - $ref: '#/definitions/merge-expression'
+              - type: string
+                default: '${.publishedImage}'
+          cluster:
+            description: Cluster to target. Currently only ci is supported.
+            const: "ci"
+          chart:
+            type: object
+            properties:
+              name:
+                description: Chart name from the chart museum.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+                    default: '${setup.projectShortName}'
+              version:
+                description: Chart version.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+          tag:
+            description: >-
+              Tag of the registered image to be deployed.
+            oneOf:
+              - $ref: '#/definitions/merge-expression'
+              - type: string
+                default: '${.imageTag}'
+          test:
+            type: boolean
+            default: true
+            description: Whether to run helm test against this deployment.
+          timeout:
+            type: integer
+            description: Timeout during helm install.
+
+          overrides:
+            description: Additional values provided to the Helm chart.
+            oneOf:
+              - $ref: '#/definitions/merge-expression'
+              - type: object
+      promote:
+        description: >-
+          Promote a published artifact (create a patchset to change the image
+          version in the deployment-charts repo).
+        oneOf:
+          - $ref: '#/definitions/merge-expression'
+          - $ref: '#/definitions/list-comprehension'
+          - type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                chart:
+                  oneOf:
+                    - $ref: '#/definitions/merge-expression'
+                    - type: string
+                      default: '${setup.project}'
+                environments:
+                  description: List of environments to update.
+                  oneOf:
+                    - $ref: '#/definitions/merge-expression'
+                    - $ref: '#/definitions/list-comprehension'
+                    - type: array
+                      items:
+                        type: string
+      notify:
+        type: object
+        description: Notify recipients in the event this stage fails.
+        additionalProperties: false
+        properties:
+          email:
+            type: object
+            additionalProperties: false
+            properties:
+              to:
+                description: List of email recipients.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - $ref: '#/definitions/list-comprehension'
+                  - type: string
+                  - type: array
+                    items:
+                      oneOf:
+                        - $ref: '#/definitions/merge-expression'
+                        - type: string
+              subject:
+                description: Email subject line.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+                    default: '[Pipeline] ${setup.projectShortName} ${setup.pipeline}/${.stage} failed'
+              body:
+                description: >-
+                  Email body. The default is a short message indicating which
+                  stage failed and a link to the build log URL.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
+      trigger:
+        type: object
+        description: Trigger a downstream job on the local Jenkins server.
+        required: [name]
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name of the downstream job.
+          parameters:
+            type: object
+            description: Object specifying parameters to pass to the job.
+            additionalProperties:
+              oneOf:
+                - $ref: '#/definitions/merge-expression'
+                - type: string
+          propagate:
+            type: boolean
+            description: >-
+              If true (the default), then the result of this step is that of
+              the downstream build (e.g., success, unstable, failure, not
+              built, or aborted). If false, then this step succeeds even if
+              the downstream build is unstable, failed, etc.
+            default: true
+
+          wait:
+            type: boolean
+            description: >-
+              If true, wait for completion of the downstream build before
+              completing this step.
+            default: false
+      exports:
+        type: object
+        description: Declare additional exports for this stage.
