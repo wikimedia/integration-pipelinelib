@@ -315,16 +315,40 @@ class ExecutionContext implements Serializable {
               case GString:
                 input = input.tokenize(delim)
               case Collection:
-                break;
+                break
               default:
                 input = [input]
             }
 
-            return input.collect {
+            return input.collect { inputValue ->
+              def bindings
+
+              switch (var) {
+                case String:
+                case GString:
+                  bindings = [(var): inputValue]
+                  break
+                case List:
+                  // When a list is provided, destructure input elements into
+                  // the provided list of variable names, using a single space
+                  // as a default delimiter.
+                  def inputValues = inputValue.tokenize(' ')
+
+                  if (inputValues.size() < var.size()) {
+                    throw new InsufficientInputException(vars: var, values: inputValues)
+                  }
+
+                  // note that transpose is like zip
+                  bindings = [var, inputValues].transpose().collectEntries { pair ->
+                    [(pair[0]): pair[1]]
+                  }
+                  break
+              }
+
               // For each item in the input, allocate a new anonymous node
-              // context with the item bound to the given variable name and
+              // context with the items bound to the given variable names and
               // interpolate the defined output object
-              dive([(var): it]).interpolate(output)
+              dive(bindings).interpolate(output)
             }
           }
 
@@ -382,6 +406,15 @@ class ExecutionContext implements Serializable {
     @NonCPS
     String getMessage() {
       "'${ns}' already has a value assigned to '${key}'"
+    }
+  }
+
+  class InsufficientInputException extends GroovyException {
+    def vars, values
+
+    @NonCPS
+    String getMessage() {
+      "insufficient number of values given (${values}) to bind to variables (${vars})"
     }
   }
 }
