@@ -688,7 +688,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == 'set +x\ndocker run --name \'plib-run-randomfoo\' sha256:\'foo\''
+      assert cmd == '#!/bin/bash\nset +o xtrace -o pipefail\ndocker run --name \'plib-run-randomfoo\' sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -718,7 +718,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == 'set +x\ndocker run --name \'plib-run-randomfoo\' -e "foo=bar" sha256:\'foo\''
+      assert cmd == '#!/bin/bash\nset +o xtrace -o pipefail\ndocker run --name \'plib-run-randomfoo\' -e "foo=bar" sha256:\'foo\''
     }
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
@@ -750,7 +750,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == 'set +x\ndocker run --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" -e "test=${test}" sha256:\'foo\''
+      assert cmd == '#!/bin/bash\nset +o xtrace -o pipefail\ndocker run --name \'plib-run-randomfoo\' -e "SONAR_API_KEY=${SONAR_API_KEY}" -e "test=${test}" sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -780,7 +780,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      assert cmd == 'set +x\ndocker run --name \'plib-run-randomfoo\' -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
+      assert cmd == '#!/bin/bash\nset +o xtrace -o pipefail\ndocker run --name \'plib-run-randomfoo\' -e "foo=bar" -e "SONAR_API_KEY=${SONAR_API_KEY}" sha256:\'foo\''
     }
 
     mockWorkflow.use {
@@ -811,7 +811,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       sh { cmd ->
-        assert cmd == 'set +x\ndocker run --name \'plib-run-randomfoo\' sha256:\'foo\' | tee \'.pipeline/output.randomfoo\''
+        assert cmd == '#!/bin/bash\nset +o xtrace -o pipefail\ndocker run --name \'plib-run-randomfoo\' sha256:\'foo\' | tee \'.pipeline/output.randomfoo\''
       }
 
       readFile { path ->

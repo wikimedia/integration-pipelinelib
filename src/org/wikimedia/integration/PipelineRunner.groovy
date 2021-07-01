@@ -103,6 +103,12 @@ class PipelineRunner implements Serializable {
   def repository = "wikimedia"
 
   /**
+   * A closure used to process all run step commands just prior to execution,
+   * typically enforcing the shell interpreter and shell behavior.
+   */
+  def runWrapper = { cmd -> "#!/bin/bash\nset +o xtrace -o pipefail\n${cmd}" }
+
+  /**
    * Default helm chart registry for helm charts
    */
   def chartRepository = "https://helm-charts.wikimedia.org/stable/"
@@ -115,12 +121,12 @@ class PipelineRunner implements Serializable {
   /**
    * A map of allowed credentials Ids and their binding for this pipeline ([credentialId: credentialbinding])
    */
-   def allowedCredentials = [:]
+  def allowedCredentials = [:]
 
   /**
    * A list of allowed trigger jobs for this pipeline
    */
-   def allowedTriggerJobs = []
+  def allowedTriggerJobs = []
 
   /**
    * Jenkins Pipeline Workflow context.
@@ -601,7 +607,7 @@ class PipelineRunner implements Serializable {
           return new RunResult(
             container: containerName,
             output: withOutput(runCmd, outputLines) { cmd ->
-              workflowScript.sh("set +x\n${cmd}")
+              workflowScript.sh(runWrapper(cmd))
             },
           )
         } catch (InterruptedException ex) {
