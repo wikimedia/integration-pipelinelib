@@ -123,7 +123,8 @@ class PipelineBuilder implements Serializable {
 
           // ensure teardown steps are always executed
           for (def stage in stack.last()) {
-            if (stage == PipelineStage.TEARDOWN) {
+            if (stage.name == PipelineStage.TEARDOWN) {
+              ws.echo "exception caught. executing teardown tasks..."
               stage.closure(ws)()
             }
           }

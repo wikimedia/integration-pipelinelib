@@ -457,19 +457,23 @@ class PipelineStage implements Serializable {
    */
   void teardown(ws, runner) {
     try {
+      ws.echo "removing containers"
       runner.removeContainers(context.getAll("container").values())
     } catch (all) {}
 
     try {
+      ws.echo "removing images"
       runner.removeImages(context.getAll("imageID").values())
     } catch (all) {}
 
     try {
+      ws.echo "purging all releases"
       runner.purgeReleases(context.getAll("releaseName").values())
     } catch (all) {}
 
     def imageTags = context.getAll("imageTags")
     context.getAll("publishedImage").each { stageName, image ->
+      ws.echo "reporting published image ${image} to gerrit"
       try {
         runner.reportImageToGerrit(image, imageTags[stageName] ?: [])
       } catch (all) {}
