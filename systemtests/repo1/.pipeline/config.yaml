@@ -89,6 +89,37 @@ pipelines:
         run:
           arguments: ['[[ $(cat bar/greeting) == "hi" ]]']
 
+  # Tests fix for CPS-serialization regression in parallel execution graphs
+  # See https://phabricator.wikimedia.org/T287507
+  test-T287507:
+    blubberfile: blubber.yaml
+    stages:
+      - name: stage1
+        build: bash
+        run:
+          arguments: ['sleep 10']
+
+      - name: stage2
+        build: bash
+        run:
+          arguments: ['sleep 10']
+
+      - name: stage3
+        build: bash
+        run:
+          arguments: ['sleep 2']
+
+      - name: stage4
+        build: bash
+        run:
+          arguments: ['sleep 10']
+
+    execution:
+      - [stage1]
+      - [stage2]
+      - [stage3]
+      - [stage4]
+
 # The following pipeline can be used to manually test notification upon failure
 #
 #  test-notify:

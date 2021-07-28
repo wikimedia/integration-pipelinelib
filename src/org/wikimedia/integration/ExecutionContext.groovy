@@ -6,6 +6,7 @@ import org.codehaus.groovy.GroovyException
 import static org.wikimedia.integration.Utility.randomAlphanum
 
 import org.wikimedia.integration.ExecutionGraph
+import org.wikimedia.integration.Lexer
 
 /**
  * Provides execution context and value bindings to graph nodes. Each node's
@@ -276,32 +277,23 @@ class ExecutionContext implements Serializable {
       switch (obj) {
         case String:
         case GString:
-          // NOTE call to replaceAll does not rely on its sub matching feature as
-          // Groovy CPS does not implement it correctly, and marking this method
-          // as NonCPS causes it to only ever return the first substitution.
-          return obj.replaceAll(/\$\{[\w-]*\.[\w-]+(?:\|[^}]*)?\}/) {
-            def key = it[2..-2]
+          return (new Lexer()).tokenize(obj).collect { token ->
+            switch (token) {
+              case Lexer.Variable:
+                try {
+                  return this[token.name] ?: token.defaultValue
+                } catch (NameNotFoundException e) {
+                  // An unknown variable is not fatal if we have a default value
+                  if (token.hasDefault) {
+                    return token.defaultValue
+                  }
 
-            def defaultOpPos = key.indexOf('|')
-            def hasDefault = defaultOpPos > -1
-            def defaultValue = ""
-
-            if (hasDefault) {
-              defaultValue = key.substring(defaultOpPos + 1)
-              key = key.substring(0, defaultOpPos)
+                  throw e
+                }
+              case Lexer.Literal:
+                return token.value
             }
-
-            try {
-              return this[key] ?: defaultValue
-            } catch (NameNotFoundException e) {
-              // An unknown variable is not fatal if we have a default value
-              if (!hasDefault) {
-                throw e
-              }
-            }
-
-            return defaultValue
-          }
+          }.join('')
         case Map:
           // Handle list comprehensions
           if ('$each' in obj) {

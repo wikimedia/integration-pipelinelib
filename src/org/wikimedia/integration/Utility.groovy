@@ -1,19 +1,11 @@
 package org.wikimedia.integration
 
+import com.cloudbees.groovy.cps.NonCPS
+
 /**
  * Static functions of global utility plopped into a class.
  */
 class Utility {
-  /**
-   * Random number generator.
-   */
-  static private final Random random = new Random()
-
-  /**
-   * Alphabet used for random string generation.
-   */
-  static private final alphanums = ('a'..'z') + ('0'..'9')
-
   /**
    * Quotes the given shell argument.
    *
@@ -124,7 +116,11 @@ class Utility {
    *
    * @param length Desired length of string.
    */
+  @NonCPS
   static String randomAlphanum(length) {
+    def alphanums = ('a'..'z') + ('0'..'9')
+    def random = new Random()
+
     (1..length).collect { alphanums[random.nextInt(alphanums.size())] }.join()
   }
 
