@@ -684,7 +684,7 @@ class PipelineStage implements Serializable {
    * <dd>
    *   <dl>
    *     <dt><code>image</code></dt>
-   *     <dd>Publish an to the WMF Docker registry</dd>
+   *     <dd>Publish an image to the WMF Docker registry</dd>
    *     <dd>
    *       <dl>
    *         <dt>id</dt>
