@@ -607,6 +607,132 @@ class PipelineStageTest extends GroovyTestCase {
     assert stage.context["publishedImage"] == "registry.example/bar/foo-project:0000-00-00-000000-published"
   }
 
+  void testGetReviewers() {
+        def pipeline = new Pipeline("foopipeline", [
+      stages: [
+        [
+          name: "built",
+          build: "foovariant",
+        ],
+        [
+          name: "published",
+          publish: [
+            image: [
+              id: '${built.imageID}',
+            ],
+          ],
+        ],
+        [
+          name: "promoted",
+          promote: [
+            [
+              chart: 'foochart',
+              version: 'fooversion',
+            ],
+            [
+              chart: 'foochart2',
+              version: 'fooversion',
+            ],
+          ]
+        ]
+      ]
+    ])
+    def stack = pipeline.stack()
+    def stage = stack[3][0]
+
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    // normal case
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{"approved": {"email": "baz@bar.org","username": "baz"}}}}']
+    }
+
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["foo@bar.org", "baz@bar.org"])
+    }
+
+    // reviewer and owner are the same
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{"approved": {"email": "foo@bar.org","username": "foo"}}}}']
+    }
+
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["foo@bar.org"])
+    }
+
+    // owner is a bot
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"owner": {"email": "foo@bar.org","username": "foo","tags": ["SERVICE_USER"]},"labels": {"Code-Review":{"approved": {"email": "boo@bar.org","username": "boo"}}}}']
+    }
+    
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["boo@bar.org"])
+    }
+
+    // reviewer is a bot
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{"approved": {"email": "boo@bar.org","username": "boo","tags": ["SERVICE_USER"]}}}}']
+    }
+    
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["foo@bar.org"])
+    }
+
+    //reviewer and submitter are bots
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"submitter": {"username": "jenkins-bot","tags": ["SERVICE_USER"]},"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{"approved": {"email": "boo@bar.org","username": "boo","tags": ["SERVICE_USER"]}}}}']
+    }
+    
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["foo@bar.org"])
+    }
+
+    //merge without code review
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+    mockWorkflow.demand.httpRequest { args ->
+      assert args.url == "https://gerrit.wikimedia.org/r/changes/123456/detail"
+
+      return [content: '\n{"submitter": {"email": "forcemerger@baz.com"},"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{}}}']
+    }
+    
+    mockWorkflow.use {
+      def ws = new WorkflowScript()
+
+      def reviewers = stage.getReviewers(ws)
+      assert reviewers.equals(["foo@bar.org", "forcemerger@baz.com"])
+    }
+  }
+
   void testPromote() {
     def pipeline = new Pipeline("foopipeline", [
       stages: [
@@ -661,6 +787,12 @@ class PipelineStageTest extends GroovyTestCase {
       }
     ])
 
+    mockWorkflow.demand.getParams { ["ZUUL_CHANGE": "123456"] }
+
+    mockWorkflow.demand.httpRequest { args ->
+      return [content: '\n{"owner": {"email": "foo@bar.org","username": "foo"},"labels": {"Code-Review":{"approved": {"email": "baz@bar.org","username": "baz"}}}}']
+    }
+
     mockWorkflow.demand.checkout {  }
 
     mockWorkflow.demand.sh { cmd ->
@@ -670,7 +802,7 @@ class PipelineStageTest extends GroovyTestCase {
     mockWorkflow.demand.dir { directory, Closure c ->
       assert directory == 'deployment-charts'
 
-      mockRunner.demand.updateCharts { config ->
+      mockRunner.demand.updateCharts { config, reviewers ->
         assert config[0].chart == 'foochart'
         assert config[0].version == 'fooversion'
         assert config[1].chart == 'foochart2'

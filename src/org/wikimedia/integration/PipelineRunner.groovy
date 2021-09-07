@@ -1,5 +1,8 @@
 package org.wikimedia.integration
 
+import com.cloudbees.groovy.cps.NonCPS
+import groovy.json.JsonSlurperClassic
+
 import java.io.FileNotFoundException
 import java.net.URI
 
@@ -405,6 +408,7 @@ class PipelineRunner implements Serializable {
   void commitAndPush(Map options = [:]) {
     def topicString = ""
     def commitMessages = ""
+    def reviewersString = ""
 
     if (options.topic) {
       topicString = '%topic=' + options.topic
@@ -414,12 +418,18 @@ class PipelineRunner implements Serializable {
       commitMessages = options.commitMessages
     }
 
+    if (options.reviewers) {
+      options.reviewers.each {
+        reviewersString += ",r=${it}"
+      }
+    }
+
     workflowScript.sh("""\
         |git add -A
         |git config user.email tcipriani+pipelinebot@wikimedia.org
         |git config user.name PipelineBot
         |git commit ${commitMessages}
-      """.stripMargin())
+      |""".stripMargin())
     
     try {
       workflowScript.withCredentials(
@@ -435,8 +445,8 @@ class PipelineRunner implements Serializable {
           |git config credential.username ${GIT_USERNAME}
           |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
           |set -x
-          |git push origin HEAD:refs/for/master%s
-        |'''.stripMargin(), topicString)
+          |git push origin %s
+        |'''.stripMargin(), arg("HEAD:refs/for/master" + topicString + reviewersString))
       )}
     } catch (Exception e) {
       workflowScript.sh("Error: ${e}")
@@ -447,11 +457,11 @@ class PipelineRunner implements Serializable {
         |git config --unset credential.helper 
         |git config --unset credential.username
         |set -e
-      """.stripMargin())
+      |""".stripMargin())
     }
   }
 
-  void updateCharts(List promote) {
+  void updateCharts(List promote, List reviewers) {
     def buildMessage = "Job: ${workflowScript.env.JOB_NAME} " +
       "Build: ${workflowScript.env.BUILD_NUMBER}"
 
@@ -468,7 +478,8 @@ class PipelineRunner implements Serializable {
       updateChart(chart, version, environments)
       commitAndPush([
         commitMessages: commitMessages, 
-        topic: 'pipeline-promote'
+        topic: 'pipeline-promote',
+        reviewers: reviewers
       ])
       workflowScript.sh("git checkout master")
     }

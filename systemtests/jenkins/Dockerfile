@@ -17,6 +17,7 @@ RUN apt-get update && \
       curl \
       gnupg2 \
       postfix \
+      python3-ruamel.yaml \
       socat \
       software-properties-common \
       sudo \

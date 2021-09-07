@@ -11,6 +11,10 @@ pipelines:
         run: false
         publish:
           image: true
+        # Uncomment the following lines to test promote up to pushing a patchset
+        # Due to lack of credentials, a push will fail
+        # promote:
+        #  - chart: blubberoid
     execution:
       - [unit, candidate]
       - [lint, candidate]

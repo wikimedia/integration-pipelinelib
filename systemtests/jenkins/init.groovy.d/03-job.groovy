@@ -13,9 +13,11 @@ scm.branches = [new BranchSpec("master")]
 
 def job = new WorkflowJob(Jenkins.instance, "repo1")
 job.definition = new CpsScmFlowDefinition(scm, "Jenkinsfile")
-job.addProperty(new ParametersDefinitionProperty(
-  new StringParameterDefinition("PLIB_PIPELINE", "", "Pipeline to run")
-))
+
+def repoOneParameters = new ArrayList<ParameterDefinition>();
+repoOneParameters.add(new StringParameterDefinition("PLIB_PIPELINE", "", "Pipeline to run"))
+repoOneParameters.add(new StringParameterDefinition("ZUUL_CHANGE", "716519", "The zuul change number"))
+job.addProperty(new ParametersDefinitionProperty(repoOneParameters))
 
 // totally-triggered job
 def project = new hudson.model.FreeStyleProject(Jenkins.instance, "totally-triggered")

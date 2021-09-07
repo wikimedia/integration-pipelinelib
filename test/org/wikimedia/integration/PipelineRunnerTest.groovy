@@ -530,59 +530,109 @@ class PipelineRunnerTest extends GroovyTestCase {
       BUILD_NUMBER: "1234",
     ]
 
-    mockWorkflow.demand.getEnv { mockEnv }
-    mockWorkflow.demand.getEnv { mockEnv }
+    def runDemands = { pushfn ->
+      mockWorkflow.demand.getEnv { mockEnv }
+      mockWorkflow.demand.getEnv { mockEnv }
 
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "git checkout -b 'randomfoo'"
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == "git checkout -b 'randomfoo'"
+      }
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' "
+      }
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == """\
+          |git add -A
+          |git config user.email tcipriani+pipelinebot@wikimedia.org
+          |git config user.name PipelineBot
+          |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
+        |""".stripMargin()
+      }
+
+      mockWorkflow.demand.withCredentials { list, Closure c ->
+        c()
+      }
+
+      mockWorkflow.demand.sh(pushfn)
+
+      mockWorkflow.demand.sh{ cmd -> 
+        assert cmd == """\
+          |set +e
+          |git config --unset credential.helper 
+          |git config --unset credential.username
+          |set -e
+        |""".stripMargin()
+      }
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == "git checkout master"
+      }
+
     }
 
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' "
-    }
-
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == """\
-        |git add -A
-        |git config user.email tcipriani+pipelinebot@wikimedia.org
-        |git config user.name PipelineBot
-        |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
-      """.stripMargin()
-    }
-
-    mockWorkflow.demand.withCredentials { list, Closure c ->
-      c()
-    }
-
-    mockWorkflow.demand.sh{ cmd ->
-      assert cmd == '''\
-        |set +x
-        |git config credential.username ${GIT_USERNAME}
-        |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
-        |set -x
-        |git push origin HEAD:refs/for/master%topic=pipeline-promote
-      |'''.stripMargin()
-    }
-
-    mockWorkflow.demand.sh{ cmd -> 
-      assert cmd == """\
-        |set +e
-        |git config --unset credential.helper 
-        |git config --unset credential.username
-        |set -e
-      """.stripMargin()
-    }
-
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "git checkout master"
-    }
+  //two reviewers
+  def pushfn = { cmd ->
+    assert cmd == '''\
+      |set +x
+      |git config credential.username ${GIT_USERNAME}
+      |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
+      |set -x
+      |git push origin 'HEAD:refs/for/master%topic=pipeline-promote,r=foo@baz.com,r=bar'
+    |'''.stripMargin()
+  }
+    
+    runDemands(pushfn)
 
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
       runner.updateCharts([
         [chart: "fooChart", version: "fooVersion", environments: []]
-      ])
+      ], ["foo@baz.com", "bar"])
+    }
+
+    //one reviewer
+    pushfn = { cmd ->
+      assert cmd == '''\
+        |set +x
+        |git config credential.username ${GIT_USERNAME}
+        |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
+        |set -x
+        |git push origin 'HEAD:refs/for/master%topic=pipeline-promote,r=foo@baz.com'
+      |'''.stripMargin()
+    }
+
+    runDemands(pushfn)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.updateCharts([
+        [chart: "fooChart", version: "fooVersion", environments: []]
+      ], ["foo@baz.com"])
+    }
+
+    //no reviewers
+    pushfn = { cmd ->
+      assert cmd == '''\
+        |set +x
+        |git config credential.username ${GIT_USERNAME}
+        |git config credential.helper '!echo password=\${GIT_PASSWORD} #'
+        |set -x
+        |git push origin 'HEAD:refs/for/master%topic=pipeline-promote'
+      |'''.stripMargin()
+    }
+
+    runDemands(pushfn)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.updateCharts([
+        [chart: "fooChart", version: "fooVersion", environments: []]
+      ], [])
     }
   }
 

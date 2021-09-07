@@ -9,6 +9,8 @@ import org.wikimedia.integration.ExecutionContext
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
 
+import groovy.json.JsonSlurperClassic
+
 import java.net.URI
 
 class PipelineStage implements Serializable {
@@ -756,6 +758,38 @@ class PipelineStage implements Serializable {
     }
   }
 
+  List getReviewers(ws) {
+    def changeResponse = ws.httpRequest(url: "https://gerrit.wikimedia.org/r/changes/${ws.params.ZUUL_CHANGE}/detail",
+                                        httpMode: "GET",
+                                        customHeaders: [[name: "content-type", value: 'application/json']],
+                                        consoleLogResponseBody: false,
+                                        validResponseCodes: "200")
+
+    //remove the magic prefix line preventing XSSI attacks before parsing
+    def change = changeResponse.content.split("\\n")[1]
+    def changeInfo = parseJson(change)
+
+    def plusTwoer = changeInfo?."labels"?."Code-Review"?.approved ? changeInfo["labels"]["Code-Review"].approved.email : null
+    def author = changeInfo?.owner?.email
+
+    // no bots allowed!
+    if (author && hasServiceUserTag(changeInfo.owner.tags)) {
+      author = null
+    }
+
+    if(plusTwoer && hasServiceUserTag(changeInfo?."labels"?."Code-Review"?.approved?.tags)){
+      plusTwoer = null
+    } else if (!plusTwoer && !hasServiceUserTag(changeInfo.submitter.tags)) {
+      // a merge without +2 is also possible? Check the submitter's info in absence of code review
+      plusTwoer = changeInfo?.submitter?.email
+    }
+
+    def reviewers = [author, plusTwoer].unique(false)
+    reviewers.removeAll([null])
+
+    return reviewers
+  }
+
 /**
    * Promote a published artifact (create a patchset to change the image version
    * in the deployment-charts repo).
@@ -781,6 +815,9 @@ class PipelineStage implements Serializable {
   void promote(ws, runner) {
     //only promote if an image is published
     if (config.promote) {
+
+      def reviewers = getReviewers(ws)
+
       //check out the repo
       ws.checkout(new PatchSet(
         commit: "master",
@@ -791,7 +828,7 @@ class PipelineStage implements Serializable {
       ws.sh("curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg")
 
       ws.dir('deployment-charts') {
-        runner.updateCharts(context % config.promote)
+        runner.updateCharts(context % config.promote, reviewers)
       }
     }
   }
@@ -1002,4 +1039,20 @@ class PipelineStage implements Serializable {
   String sanitizeImageRef(name) {
     name.toLowerCase().replaceAll('/', '-')
   }
+
+  @NonCPS
+  def parseJson(jsonString) {
+    def jsonSlurper = new JsonSlurperClassic()
+
+    jsonSlurper.parseText(jsonString)
+  }
+
+  Boolean hasServiceUserTag(tags) {
+    if(tags && tags.contains("SERVICE_USER")){
+      return true;
+    }
+
+    return false;
+  }
+
 }
