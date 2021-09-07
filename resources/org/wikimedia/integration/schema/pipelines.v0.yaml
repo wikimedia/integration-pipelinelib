@@ -169,6 +169,13 @@ definitions:
                   - type: array
                     items:
                       type: string
+              imagePullPolicy:
+                description: >-
+                  Whether to always pull base images when building, "always"
+                  or only when an image doesn't exist localy (left empty).
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: string
       run:
         oneOf:
           - type: boolean

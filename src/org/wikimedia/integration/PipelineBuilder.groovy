@@ -1,10 +1,14 @@
 package org.wikimedia.integration
 
+import static org.wikimedia.integration.Utility.arg
+import static org.wikimedia.integration.Utility.args
 import static org.wikimedia.integration.Utility.collectAllNested
+import static org.wikimedia.integration.Utility.randomAlphanum
 
 import org.wikimedia.integration.ExecutionGraph
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
+import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.PipelineStage
 
 class PipelineBuilder implements Serializable {
@@ -73,6 +77,9 @@ class PipelineBuilder implements Serializable {
             return it
           }))
         }
+
+        def validator = new Validator(ws: ws)
+        validator.assertValid(configPath)
 
         config = ws.readYaml(file: configPath)
       }
@@ -143,6 +150,51 @@ class PipelineBuilder implements Serializable {
       def pline = new Pipeline(pname, pconfig, runnerOverrides)
       pline.validate()
       pline
+    }
+  }
+
+  /**
+   * Validates user provided configuration against the defined schema using a
+   * tool called ajv (Another JSON Validator).
+   */
+  class Validator implements Serializable {
+    def ws
+
+    private final String AJV = 'docker-registry.wikimedia.org/releng/ajv:latest'
+    private final String SCHEMA = 'org/wikimedia/integration/schema/pipelines.v0.yaml'
+
+    /**
+     * Validates the given configuration against the schema.
+     *
+     * @param configPath Path to configuration file.
+     */
+    void assertValid(String configPath) {
+      def runner = new PipelineRunner(runnerOverrides, ws)
+
+      runner.withTempDirectory() { tempDir ->
+        ws.timeout(time: 10, unit: "MINUTES") {
+          def containerName = "plib-validate-${randomAlphanum(8)}"
+
+          ws.sh(sprintf(
+            'docker container create --rm --attach STDOUT --attach STDERR --name %s %s',
+            arg(containerName),
+            args([AJV, '--spec=draft2020', '--errors=text', '-s', 'schema.yaml', '-d', 'config.yaml'])
+          ))
+
+          try {
+            def schemaFile = [tempDir, 'schema.yaml'].join('/')
+            ws.writeFile(file: schemaFile, text: ws.libraryResource(SCHEMA))
+
+            ws.sh(sprintf('docker cp %s %s:/workspace/schema.yaml', arg(schemaFile), arg(containerName)))
+            ws.sh(sprintf('docker cp %s %s:/workspace/config.yaml', arg(configPath), arg(containerName)))
+          } catch (Exception e) {
+            ws.sh(sprintf('docker rm %s', arg(containerName)))
+            throw e
+          }
+
+          ws.sh(sprintf('docker container start --attach %s', arg(containerName)))
+        }
+      }
     }
   }
 }

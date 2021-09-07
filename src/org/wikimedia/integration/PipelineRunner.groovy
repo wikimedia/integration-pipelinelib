@@ -712,7 +712,7 @@ class PipelineRunner implements Serializable {
    * as an argument, and ensures the directory is removed.
    */
   void withTempDirectory(Closure c) {
-    def tempDir = workflowScript.sh(returnStdout: true, script: "mktemp -d")
+    def tempDir = workflowScript.sh(returnStdout: true, script: "mktemp -d").trim()
 
     try {
       c(tempDir)

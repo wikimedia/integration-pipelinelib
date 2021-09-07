@@ -941,7 +941,7 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.returnStdout
         assert args.script == "mktemp -d"
 
-        return "/tmp/dir"
+        return "/tmp/dir\n"
       }
 
       dir { path, c ->
@@ -969,7 +969,7 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.returnStdout
         assert args.script == "mktemp -d"
 
-        return "/tmp/dir"
+        return "/tmp/dir\n"
       }
     }
 

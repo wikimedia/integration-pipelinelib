@@ -19,7 +19,22 @@ class PipelineBuilderTest extends GroovyTestCase {
   void testBuild() {
     def ws = new MockFor(WorkflowScript)
     def builder = new PipelineBuilder(".pipeline/foo.yaml")
+
+    def validator = new MockFor(PipelineBuilder.Validator, true)
+    def dummyBuilder = new PipelineBuilder.Validator(builder, [ws: ws])
+
     def fakeBuild = [ result: null ]
+
+    // Mock config validation
+    validator.demand.with {
+      Validator { bldr, args ->
+        dummyBuilder
+      }
+
+      assertValid { configPath ->
+        assert configPath == builder.configPath
+      }
+    }
 
     ws.demand.with {
       // 1. Executes on any "pipelinelib" node
@@ -108,9 +123,11 @@ class PipelineBuilderTest extends GroovyTestCase {
     }
 
     ws.use {
-      builder.build(new WorkflowScript(), "foo-pipeline")
+      validator.use {
+        builder.build(new WorkflowScript(), "foo-pipeline")
 
-      assert fakeBuild.result == "SUCCESS"
+        assert fakeBuild.result == "SUCCESS"
+      }
     }
   }
 }
