@@ -164,6 +164,17 @@ class ExecutionContextTest extends GroovyTestCase {
     assert (context.ofNode("a") % true) == true
   }
 
+  void testStringInterpolation_nonPipelineVariable() {
+    /*
+     * a
+     */
+    def context = new ExecutionContext(new ExecutionGraph([
+      ["a"],
+    ]))
+
+    assert (context.ofNode("a") % 'this is ${FOO} ${bar}.') == 'this is ${FOO} ${bar}.'
+  }
+
   void testInterpolate_defaultValue() {
     def context = new ExecutionContext(new ExecutionGraph([
       ["a"],

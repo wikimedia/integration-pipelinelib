@@ -288,6 +288,13 @@ class ExecutionContext implements Serializable {
                     return token.defaultValue
                   }
 
+                  // A variable name that doesn't contain `.` is not
+                  // considered a pipeline config variable. Let's ignore it.
+                  // see T291554
+                  if (!token.name.contains('.')) {
+                    return token.source
+                  }
+
                   throw e
                 }
               case Lexer.Literal:
