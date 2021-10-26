@@ -769,19 +769,19 @@ class PipelineStage implements Serializable {
     def change = changeResponse.content.split("\\n")[1]
     def changeInfo = parseJson(change)
 
-    def plusTwoer = changeInfo?."labels"?."Code-Review"?.approved ? changeInfo["labels"]["Code-Review"].approved.email : null
-    def author = changeInfo?.owner?.email
+    def plusTwoer = changeInfo?."labels"?."Code-Review"?.approved?._account_id
+    def author = changeInfo?.owner?._account_id
 
     // no bots allowed!
     if (author && hasServiceUserTag(changeInfo.owner.tags)) {
       author = null
     }
 
-    if(plusTwoer && hasServiceUserTag(changeInfo?."labels"?."Code-Review"?.approved?.tags)){
+    if (plusTwoer && hasServiceUserTag(changeInfo?."labels"?."Code-Review"?.approved?.tags)) {
       plusTwoer = null
     } else if (!plusTwoer && !hasServiceUserTag(changeInfo.submitter.tags)) {
       // a merge without +2 is also possible? Check the submitter's info in absence of code review
-      plusTwoer = changeInfo?.submitter?.email
+      plusTwoer = changeInfo?.submitter?._account_id
     }
 
     def reviewers = [author, plusTwoer].unique(false)
