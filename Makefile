@@ -49,6 +49,7 @@ endif
 systemtest:
 	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
 	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
+	$(eval JENKINS_COOKIES := $(shell mktemp -t pipelinelib-systemtest.cookies))
 	$(eval BUILD_OUTPUT := $(shell mktemp -t pipelinelib-systemtest.XXXXXX))
 
 	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
@@ -66,7 +67,10 @@ systemtest:
 	  sleep 1; \
 	done
 
-	curl -X POST $(JENKINS_URL)/job/repo1/buildWithParameters?PLIB_PIPELINE=$(TEST_PIPELINE)
+	curl -X POST \
+	  -H "Jenkins-Crumb: $$(curl -sc $(JENKINS_COOKIES) $(JENKINS_URL)/crumbIssuer/api/json | jq -r .crumb)" \
+	  -b $(JENKINS_COOKIES) \
+	  $(JENKINS_URL)/job/repo1/buildWithParameters?PLIB_PIPELINE=$(TEST_PIPELINE)
 
 	@echo "Build $(JENKINS_URL)/job/repo1/1 created"
 	@while curl -sw %%{http_code} $(JENKINS_URL)/job/repo1/1/api/json | grep -q '404'; do \
@@ -83,7 +87,8 @@ systemtest:
 	    tee -a $(BUILD_OUTPUT); \
 	done
 
-	rm -f $(BUILD_OUTPUT)
+	rm -f "$(BUILD_OUTPUT)"
+	rm -f "$(JENKINS_COOKIES)"
 
 ifeq (1,$(DEBUG))
 	@echo "DEBUG: Build $(JENKINS_URL)/job/repo1/1 status: $$(curl -s $(JENKINS_URL)/job/repo1/1/api/json | jq -r .result)"

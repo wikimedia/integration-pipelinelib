@@ -225,8 +225,9 @@ class PipelineRunner implements Serializable {
    * @param container Container ID or name.
    * @param source Source path relative to the container's root (/) directory.
    * @param destination Destination path relative to the working directory.
+   * @param archive Archive destination path as a Jenkins artifact.
    */
-  void copyFilesFrom(String container, String source, String destination) {
+  void copyFilesFrom(String container, String source, String destination, archive = false) {
     destination = sanitizeRelativePath(destination)
 
     // The logic that docker cp employs when it comes to source directories
@@ -242,6 +243,15 @@ class PipelineRunner implements Serializable {
       'mkdir -p "$(dirname %s)" && docker cp %s:%s %s',
       arg(destination), arg(container), arg(source), arg(destination)
     ))
+
+    if (archive) {
+      workflowScript.archiveArtifacts(
+        artifacts: destination,
+        allowEmptyArchive: true,
+        followSymlinks: false,
+        onlyIfSuccessful: true
+      )
+    }
   }
 
   /**

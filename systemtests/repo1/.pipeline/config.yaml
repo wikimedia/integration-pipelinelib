@@ -93,6 +93,19 @@ pipelines:
         run:
           arguments: ['[[ $(cat bar/greeting) == "hi" ]]']
 
+  # NOTE: The archival function of this test can only be manually verified
+  test-copy-archive:
+    blubberfile: blubber.yaml
+    stages:
+      - name: make-a-file
+        build: sh-local
+        run:
+          arguments: ['mkdir /tmp/foo && echo hi > /tmp/foo/greeting']
+        copy:
+          - source: /tmp/foo/greeting
+            destination: bar/greeting
+            archive: true
+
   # Tests fix for CPS-serialization regression in parallel execution graphs
   # See https://phabricator.wikimedia.org/T287507
   test-T287507:

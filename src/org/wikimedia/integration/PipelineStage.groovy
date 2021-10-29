@@ -183,6 +183,9 @@ class PipelineStage implements Serializable {
         // copy[].destination defaults to the source
         file.destination = file.destination ?: file.source
 
+        // by default do not archive copied files as artifacts
+        file.archive = file.archive == null ? false : file.archive
+
         file
       }
     }
@@ -664,6 +667,11 @@ class PipelineStage implements Serializable {
    *     <dd>Destination file path relative to the local context</dd>
    *     <dd>Default: <code>source</code> (the source path made relative to
    *     the local context directory).</dd>
+   *
+   *     <dt>archive</dt>
+   *     <dd>Whether to archive the destination file as a Jenkins build
+   *     artifact.</dd>
+   *     <dd>Default: <code>false</code></dd>
    *   </dl>
    * </dd>
    * <dd>Shorthand: <code>[source, source, ...]</code></dd>
@@ -672,7 +680,7 @@ class PipelineStage implements Serializable {
   void copy(ws, runner) {
     if (config.copy) {
       (context % config.copy).each {
-        runner.copyFilesFrom(it.from, it.source, it.destination)
+        runner.copyFilesFrom(it.from, it.source, it.destination, it.archive)
       }
     }
   }

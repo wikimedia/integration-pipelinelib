@@ -1,4 +1,4 @@
-ARG VERSION=2.169
+ARG VERSION=2.318
 
 FROM jenkins/jenkins:${VERSION}-slim
 

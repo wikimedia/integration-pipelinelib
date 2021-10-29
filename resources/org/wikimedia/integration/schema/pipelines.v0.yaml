@@ -281,6 +281,11 @@ definitions:
                       oneOf:
                         - $ref: '#/definitions/merge-expression'
                         - type: string
+                    archive:
+                      description: >-
+                        Whether to archive the destination files as Jenkins artifacts.
+                      type: boolean
+                      default: false
                 - type: string
                   description: >-
                     Short-hand providing just the source paths for files from

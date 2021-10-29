@@ -203,6 +203,28 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testCopyFilesFrom_archive() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == """mkdir -p "\$(dirname 'dst/path')" && docker cp 'foo-container':'src/path' 'dst/path'"""
+    }
+
+    mockWorkflow.demand.archiveArtifacts { args ->
+      assert args.artifacts == "dst/path"
+      assert args.allowEmptyArchive == true
+      assert args.followSymlinks == false
+      assert args.onlyIfSuccessful == true
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      runner.copyFilesFrom("foo-container", "src/path", "dst/path", true)
+    }
+  }
+
+
   void testDeploy_checksConfigForChart() {
     def mockWorkflow = new MockFor(WorkflowScript)
 

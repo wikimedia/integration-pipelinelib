@@ -119,6 +119,7 @@ class PipelineStageTest extends GroovyTestCase {
         [
           from: "bar-container",
           source: "bar/source",
+          archive: true,
         ],
       ],
     ]
@@ -129,11 +130,13 @@ class PipelineStageTest extends GroovyTestCase {
           from: '${.container}',
           source: "foo/source",
           destination: "foo/source",
+          archive: false,
         ],
         [
           from: "bar-container",
           source: "bar/source",
           destination: "bar/source",
+          archive: true,
         ],
       ],
     ]
@@ -345,6 +348,7 @@ class PipelineStageTest extends GroovyTestCase {
               from: '${.container}',
               source: 'foo/artifact',
               destination: 'foo/dest',
+              archive: true,
             ],
           ],
         ],
@@ -361,10 +365,11 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.copyFilesFrom { container, source, destination ->
+    mockRunner.demand.copyFilesFrom { container, source, destination, archive ->
       assert container == "foo-container"
       assert source == "foo/artifact"
       assert destination == "foo/dest"
+      assert archive == true
     }
 
     mockRunner.use {
