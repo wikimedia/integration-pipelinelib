@@ -273,12 +273,11 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' install " +
+      def expectedCmd = "helm3 install 'randomfoo' " +
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'randomfoo' " +
-                        "--debug --wait --timeout 120 " +
+                        "--debug --wait --timeout 120s " +
                         "--repo https://helm-charts.wikimedia.org/stable/ " +
                         "--version '0.0.1'"
 
@@ -309,12 +308,11 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
-                        "helm --tiller-namespace='ci' install " +
+                        "helm3 install 'randomfoo' " +
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'randomfoo' " +
-                        "--debug --wait --timeout 120 " +
+                        "--debug --wait --timeout 120s " +
                         "--repo https://helm-charts.wikimedia.org/stable/ "
 
       assert cmd == expectedCmd
@@ -344,12 +342,11 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' install " +
+      def expectedCmd = "helm3 install 'randomfoo' " +
                         "'exampleChart' " +
                         "--namespace='ci' " +
                         "--values '.pipeline/values.yaml.randomfoo' " +
-                        "-n 'randomfoo' " +
-                        "--debug --wait --timeout 120 " +
+                        "--debug --wait --timeout 120s " +
                         "--repo https://helm-charts.wikimedia.org/stable/ "
 
       assert cmd == expectedCmd
@@ -358,8 +355,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' " +
-                        "delete --purge 'randomfoo'"
+      def expectedCmd = "helm3 uninstall 'randomfoo' --namespace='ci'"
 
       assert cmd == expectedCmd
     }
@@ -377,7 +373,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' delete --purge 'foorelease'"
+      def expectedCmd = "helm3 uninstall 'foorelease' --namespace='ci'"
 
       assert cmd == expectedCmd
     }
@@ -394,7 +390,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
-                        "helm --tiller-namespace='ci' delete --purge 'foorelease'"
+                        "helm3 uninstall 'foorelease' --namespace='ci'"
 
       assert cmd == expectedCmd
     }
@@ -411,7 +407,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     def mockWorkflow = new MockFor(WorkflowScript)
 
     mockWorkflow.demand.sh { cmd ->
-      def expectedCmd = "helm --tiller-namespace='ci' test --logs --cleanup 'foorelease'"
+      def expectedCmd = "helm3 test --logs 'foorelease'"
 
       assert cmd == expectedCmd
     }
@@ -428,7 +424,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
     mockWorkflow.demand.sh { cmd ->
       def expectedCmd = "KUBECONFIG='/etc/kubernetes/foo.config' " +
-                        "helm --tiller-namespace='ci' test --logs --cleanup 'foorelease'"
+                        "helm3 test --logs 'foorelease'"
 
       assert cmd == expectedCmd
     }
@@ -527,7 +523,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       def runner = new PipelineRunner(new WorkflowScript())
 
       runner.updateChart("fooChart", "fooVersion", [])
-    }    
+    }
   }
 
   void testUpdateChart_withEnvs() {
@@ -541,7 +537,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       def runner = new PipelineRunner(new WorkflowScript())
 
       runner.updateChart("fooChart", "fooVersion", ["fooEnv", "barEnv"])
-    }    
+    }
   }
 
   void testUpdateCharts() {
@@ -579,10 +575,10 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       mockWorkflow.demand.sh(pushfn)
 
-      mockWorkflow.demand.sh{ cmd -> 
+      mockWorkflow.demand.sh{ cmd ->
         assert cmd == """\
           |set +e
-          |git config --unset credential.helper 
+          |git config --unset credential.helper
           |git config --unset credential.username
           |set -e
         |""".stripMargin()
@@ -604,7 +600,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       |git push origin 'HEAD:refs/for/master%topic=pipeline-promote,r=foo@baz.com,r=bar'
     |'''.stripMargin()
   }
-    
+
     runDemands(pushfn)
 
     mockWorkflow.use {
@@ -748,7 +744,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.demand.withCredentials { list, Closure c ->
       assert list == [
         [$class:'StringBinding', credentialsId:'SONAR_API_KEY', variable:'SONAR_API_KEY'],
-        [$class:'StringBinding', credentialsId:'TEST', variable:'test']  
+        [$class:'StringBinding', credentialsId:'TEST', variable:'test']
       ]
       c()
     }

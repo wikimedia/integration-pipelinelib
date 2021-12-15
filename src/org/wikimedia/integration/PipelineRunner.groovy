@@ -304,8 +304,8 @@ class PipelineRunner implements Serializable {
     workflowScript.writeYaml(data: values, file: valuesFile)
 
     try {
-      helm("install ${arg(chart)} --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
-        "-n ${arg(release)} --debug --wait --timeout ${helmTimeout} --repo ${chartRepository} ${version}")
+      helm("install ${arg(release)} ${arg(chart)} --namespace=${arg(namespace)} --values ${arg(valuesFile)} " +
+        "--debug --wait --timeout ${helmTimeout}s --repo ${chartRepository} ${version}")
     } catch (Exception e) {
       // Attempt to purge failed releases
       purgeRelease(release)
@@ -349,7 +349,7 @@ class PipelineRunner implements Serializable {
    */
   void purgeReleases(List releases) {
     if (releases.size() > 0) {
-      helm("delete --purge ${args(releases)}")
+      helm("uninstall ${args(releases)} --namespace=${arg(namespace)}")
     }
   }
 
@@ -440,7 +440,7 @@ class PipelineRunner implements Serializable {
         |git config user.name PipelineBot
         |git commit ${commitMessages}
       |""".stripMargin())
-    
+
     try {
       workflowScript.withCredentials(
         [[
@@ -464,7 +464,7 @@ class PipelineRunner implements Serializable {
     } finally {
       workflowScript.sh("""\
         |set +e
-        |git config --unset credential.helper 
+        |git config --unset credential.helper
         |git config --unset credential.username
         |set -e
       |""".stripMargin())
@@ -487,7 +487,7 @@ class PipelineRunner implements Serializable {
       workflowScript.sh("git checkout -b ${arg(branchName)}")
       updateChart(chart, version, environments)
       commitAndPush([
-        commitMessages: commitMessages, 
+        commitMessages: commitMessages,
         topic: 'pipeline-promote',
         reviewers: reviewers
       ])
@@ -646,7 +646,7 @@ class PipelineRunner implements Serializable {
    * @param release Previously deployed release name.
    */
   void testRelease(String release) {
-    helm("test --logs --cleanup ${arg(release)}")
+    helm("test --logs ${arg(release)}")
   }
 
   /**
@@ -738,10 +738,10 @@ class PipelineRunner implements Serializable {
   private
 
   /**
-   * Execute a helm command, specifying the right tiller namespace.
+   * Execute a helm command
    */
   void helm(String cmd) {
-    kubeCmd("helm --tiller-namespace=${arg(namespace)} ${cmd}")
+    kubeCmd("helm3 ${cmd}")
   }
 
   /**
