@@ -610,9 +610,10 @@ class PipelineRunner implements Serializable {
               workflowScript.sh(runWrapper(cmd))
             },
           )
-        } catch (InterruptedException ex) {
-          // ensure container termination upon abort/timeout/etc.
-          workflowScript.sh("docker stop ${arg(containerName)}")
+        } catch (Exception ex) {
+          // T290608
+          // ensure container removal upon failed command, abort, timeout, etc.
+          workflowScript.sh("docker rm -f ${arg(containerName)} || true")
           throw ex
         }
       }
