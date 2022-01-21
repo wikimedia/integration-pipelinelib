@@ -571,6 +571,7 @@ class PipelineRunner implements Serializable {
    * @param envVars Environment variables to set.
    * @param creds Credentials to expose to the running container process.
    * @param outputLines Return the last n lines of the container's output.
+   * @param removeContainer If true, remove the container after the process exists
    *
    * @return RunResult Last <code>outputLines</code> of the container's output
    * and container name.
@@ -580,7 +581,8 @@ class PipelineRunner implements Serializable {
     List arguments = [],
     Map envVars = [:],
     List creds = [],
-    Integer outputLines = 0) {
+    Integer outputLines = 0,
+    Boolean removeContainer = false) {
 
     def credBindings = []
     def credsWithVars = [:]
@@ -595,8 +597,11 @@ class PipelineRunner implements Serializable {
     def argsString = args([imageID] + arguments)
     def containerName = "plib-run-${randomAlphanum(8)}"
     def runCmd = sprintf(
-      'docker run --name %s %ssha256:%s',
-      arg(containerName), envs(envVars + credsWithVars), argsString
+      'docker run --name %s --rm=%s %ssha256:%s',
+            arg(containerName),
+            removeContainer,
+            envs(envVars + credsWithVars),
+            argsString
     )
 
     workflowScript.echo(runCmd)
@@ -609,6 +614,7 @@ class PipelineRunner implements Serializable {
             output: withOutput(runCmd, outputLines) { cmd ->
               workflowScript.sh(runWrapper(cmd))
             },
+            containerRemoved: removeContainer,
           )
         } catch (Exception ex) {
           // T290608
@@ -773,5 +779,10 @@ class PipelineRunner implements Serializable {
      * Output of the container entrypoint.
      */
     String output
+
+    /**
+     * Boolean indicating whether or not the container has been removed already.
+     */
+    Boolean containerRemoved
   }
 }
