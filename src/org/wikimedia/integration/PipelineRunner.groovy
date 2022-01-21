@@ -563,6 +563,22 @@ class PipelineRunner implements Serializable {
     GerritReview.post(workflowScript, comment)
   }
 
+  /* This is like run() below, but it accepts its arguments as a map to make it
+   * easier to omit optional arguments.
+   */
+  RunResult run(Map args) {
+    if (args.imageID == null) {
+      throw new RuntimeException("run: imageID must be supplied")
+    }
+
+    return run(args.imageID,
+               args.arguments ?: [],
+               args.envVars ?: [:],
+               args.creds ?: [],
+               args.outputLines ?: 0,
+               args.removeContainer ?: false)
+  }
+
   /**
    * Runs a container using the image specified by the given ID.
    *

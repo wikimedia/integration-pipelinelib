@@ -724,7 +724,8 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [:], [], 0, true)
+      runner.run([imageID: "foo",
+                    removeContainer: true])
     }
   }
 
@@ -753,7 +754,9 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.run("foo", [], [foo: "bar"])
+      runner.run([imageID: "foo",
+                    envVars: [foo: "bar"]])
+                   
     }
   }
 
@@ -786,7 +789,10 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript(), allowedCredentials: [SONAR_API_KEY: "StringBinding", TEST: "StringBinding"])
 
-      runner.run("foo", [], [:], [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY'], [id: 'TEST', name: 'test']])
+      runner.run([
+          imageID: "foo",
+          creds: [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY'], [id: 'TEST', name: 'test']]
+        ])
     }
   }
 
@@ -816,7 +822,12 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript(), allowedCredentials: [SONAR_API_KEY: 'StringBinding'])
 
-      runner.run("foo", [], [foo: "bar"], [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY']])
+      runner.run([
+          imageID: "foo",
+          envVars: [foo: "bar"],
+          creds: [[id: 'SONAR_API_KEY', name: 'SONAR_API_KEY']],
+        ])
+          
     }
   }
 
@@ -863,7 +874,9 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      def result = runner.run("foo", [], [:], [], 3)
+      def result = runner.run([
+          imageID: "foo",
+          outputLines: 3])
 
       assert result.output == (
         "two\n" +
