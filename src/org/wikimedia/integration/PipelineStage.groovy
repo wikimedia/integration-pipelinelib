@@ -743,8 +743,8 @@ class PipelineStage implements Serializable {
 
       def imageID = context % publishImage.id
       def imageName = sanitizeImageRef(context % publishImage.name)
-      def imageTags = ([publishImage.tag] + publishImage.tags).collect {
-        sanitizeImageRef(context % it)
+      def imageTags = ([context % publishImage.tag] + (context % publishImage.tags)).collect {
+        sanitizeImageRef(it)
       }
 
       // omit empty strings
