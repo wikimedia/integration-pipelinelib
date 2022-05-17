@@ -676,12 +676,21 @@ class PipelineStage implements Serializable {
    * </dd>
    * <dd>Shorthand: <code>[source, source, ...]</code></dd>
    * </dl>
+   *
+   * <h3>Exports</h3>
+   * <dl>
+   * <dt><code>${[stage].artifactURLs}</code></dt>
+   * <dd>Jenkins build artifact URLs, one per line. If the
+   * <code>destination</code> of the copy was a directory, the artifact at
+   * this URL will be a tar.gz file.</dd>
+   * </dl>
    */
   void copy(ws, runner) {
     if (config.copy) {
-      (context % config.copy).each {
+      def artifactURLs = (context % config.copy).collect {
         runner.copyFilesFrom(it.from, it.source, it.destination, it.archive)
       }
+      context["artifactURLs"] = artifactURLs.join("\n")
     }
   }
 

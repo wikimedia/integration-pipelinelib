@@ -106,6 +106,19 @@ pipelines:
             destination: bar/greeting
             archive: true
 
+  # NOTE: The archival function of this test can only be manually verified
+  test-copy-archive-directory:
+    blubberfile: blubber.yaml
+    stages:
+      - name: make-a-file
+        build: sh-local
+        run:
+          arguments: ['mkdir /tmp/foo && echo hi > /tmp/foo/greeting']
+        copy:
+          - source: /tmp/foo
+            destination: bar
+            archive: true
+
   # Tests fix for CPS-serialization regression in parallel execution graphs
   # See https://phabricator.wikimedia.org/T287507
   test-T287507:

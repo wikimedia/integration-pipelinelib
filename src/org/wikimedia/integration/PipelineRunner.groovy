@@ -231,9 +231,14 @@ class PipelineRunner implements Serializable {
    * @param container Container ID or name.
    * @param source Source path relative to the container's root (/) directory.
    * @param destination Destination path relative to the working directory.
-   * @param archive Archive destination path as a Jenkins artifact.
+   * @param archive Archive destination path as a Jenkins artifact. If
+   * <code>destination</code> is a directory, it will be archived as a tar.gz
+   * file.
+   *
+   * @return Artifact URL (empty if <code>archive</code> is <code>false</code>)
    */
-  void copyFilesFrom(String container, String source, String destination, archive = false) {
+  String copyFilesFrom(String container, String source, String destination, archive = false) {
+    def artifactURL = ""
     destination = sanitizeRelativePath(destination)
 
     // The logic that docker cp employs when it comes to source directories
@@ -251,13 +256,25 @@ class PipelineRunner implements Serializable {
     ))
 
     if (archive) {
+      def artifact = destination
+
+      // Tar and compress directories
+      if (isDirectory(destination)) {
+        artifact += ".tar.gz"
+        workflowScript.sh("tar zcf ${arg(artifact)} -C ${arg(destination)} .")
+      }
+
+      artifactURL = workflowScript.env.BUILD_URL + "artifact/" + artifact
+
       workflowScript.archiveArtifacts(
-        artifacts: destination,
+        artifacts: artifact,
         allowEmptyArchive: true,
         followSymlinks: false,
         onlyIfSuccessful: true
       )
     }
+
+    artifactURL
   }
 
   /**
@@ -337,6 +354,19 @@ class PipelineRunner implements Serializable {
    */
   String getTempFile(String baseName) {
     getConfigFile("${baseName}${randomAlphanum(8)}")
+  }
+
+  /**
+   * Whether the given path is a directory or not. If no file or directory
+   * exists at the given path, false is returned.
+   *
+   * @param path File/directory path.
+   */
+  Boolean isDirectory(String path) {
+    workflowScript.sh(
+      script: "[ -d ${arg(path)} ]",
+      returnStatus: true
+    ) == 0
   }
 
   /**

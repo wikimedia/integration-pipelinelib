@@ -206,24 +206,72 @@ class PipelineRunnerTest extends GroovyTestCase {
   void testCopyFilesFrom_archive() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == """mkdir -p "\$(dirname 'dst/path')" && docker cp 'foo-container':'src/path' 'dst/path'"""
-    }
+    mockWorkflow.demand.with {
+      sh { cmd ->
+        assert cmd == """mkdir -p "\$(dirname 'dst/path')" && docker cp 'foo-container':'src/path' 'dst/path'"""
+      }
 
-    mockWorkflow.demand.archiveArtifacts { args ->
-      assert args.artifacts == "dst/path"
-      assert args.allowEmptyArchive == true
-      assert args.followSymlinks == false
-      assert args.onlyIfSuccessful == true
+      sh { args ->
+        assert args.script == """[ -d 'dst/path' ]"""
+        assert args.returnStatus
+
+        return 1
+      }
+
+      getEnv { [ BUILD_URL: "http://an.example/job/123/" ] }
+
+      archiveArtifacts { args ->
+        assert args.artifacts == "dst/path"
+        assert args.allowEmptyArchive == true
+        assert args.followSymlinks == false
+        assert args.onlyIfSuccessful == true
+      }
     }
 
     mockWorkflow.use {
       def runner = new PipelineRunner(new WorkflowScript())
 
-      runner.copyFilesFrom("foo-container", "src/path", "dst/path", true)
+      def artifactURL = runner.copyFilesFrom("foo-container", "src/path", "dst/path", true)
+      assert artifactURL == "http://an.example/job/123/artifact/dst/path"
     }
   }
 
+  void testCopyFilesFrom_archive_directory() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      sh { cmd ->
+        assert cmd == """mkdir -p "\$(dirname 'dst/path')" && docker cp 'foo-container':'src/path' 'dst/path'"""
+      }
+
+      sh { args ->
+        assert args.script == """[ -d 'dst/path' ]"""
+        assert args.returnStatus
+
+        return 0
+      }
+
+      sh { cmd ->
+        assert cmd == """tar zcf 'dst/path.tar.gz' -C 'dst/path' ."""
+      }
+
+      getEnv { [ BUILD_URL: "http://an.example/job/123/" ] }
+
+      archiveArtifacts { args ->
+        assert args.artifacts == "dst/path.tar.gz"
+        assert args.allowEmptyArchive == true
+        assert args.followSymlinks == false
+        assert args.onlyIfSuccessful == true
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(new WorkflowScript())
+
+      def artifactURL = runner.copyFilesFrom("foo-container", "src/path", "dst/path", true)
+      assert artifactURL == "http://an.example/job/123/artifact/dst/path.tar.gz"
+    }
+  }
 
   void testDeploy_checksConfigForChart() {
     def mockWorkflow = new MockFor(WorkflowScript)
