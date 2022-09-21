@@ -842,9 +842,13 @@ class PipelineStage implements Serializable {
         remote: CHARTSREPO
       ).getSCM([target: 'deployment-charts']))
 
-      ws.sh("curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg")
-
       ws.dir('deployment-charts') {
+        // Ensure that the Change-Id commit-msg hook is installed and enabled
+        // for this repo regardless of the Jenkins hooks setting. Note that
+        // Jenkins by default sets the hooksPath to /dev/null to disable them
+        ws.sh("git config --unset core.hooksPath")
+        ws.sh("curl -Lo .git/hooks/commit-msg https://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x .git/hooks/commit-msg")
+
         runner.updateCharts(context % config.promote, reviewers)
       }
     }

@@ -800,12 +800,16 @@ class PipelineStageTest extends GroovyTestCase {
 
     mockWorkflow.demand.checkout {  }
 
-    mockWorkflow.demand.sh { cmd ->
-      assert cmd == "curl -Lo deployment-charts/.git/hooks/commit-msg http://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x deployment-charts/.git/hooks/commit-msg"
-    }
-
     mockWorkflow.demand.dir { directory, Closure c ->
       assert directory == 'deployment-charts'
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == "git config --unset core.hooksPath"
+      }
+
+      mockWorkflow.demand.sh { cmd ->
+        assert cmd == "curl -Lo .git/hooks/commit-msg https://gerrit.wikimedia.org/r/tools/hooks/commit-msg && chmod +x .git/hooks/commit-msg"
+      }
 
       mockRunner.demand.updateCharts { config, reviewers ->
         assert config[0].chart == 'foochart'
