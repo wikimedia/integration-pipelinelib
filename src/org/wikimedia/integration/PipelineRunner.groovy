@@ -1,7 +1,6 @@
 package org.wikimedia.integration
 
 import com.cloudbees.groovy.cps.NonCPS
-import groovy.json.JsonSlurperClassic
 
 import java.io.FileNotFoundException
 import java.net.URI
@@ -33,9 +32,9 @@ class PipelineRunner implements Serializable {
   def blubberConfig = "blubber.yaml"
 
   /**
-   * Base URL for the Blubberoid service.
+   * Image ref of the buildkit frontend to use during builds.
    */
-  def blubberoidURL = "https://blubberoid.wikimedia.org/v1/"
+  def buildkitFrontend = "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.11.0"
 
   /**
    * Directory in which pipeline configuration is stored.
@@ -183,10 +182,24 @@ class PipelineRunner implements Serializable {
       throw new RuntimeException("excludes may only be used with a local build context")
     }
 
-    def blubber = new Blubber(workflowScript, cfg, blubberoidURL)
-    def dockerfile = getTempFile("Dockerfile.")
+    def cfgLines = workflowScript.readFile(file: cfg).readLines()
+    def dockerfile = cfg
 
-    workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
+    // Enforce our frontend using a `syntax=` line if need be and write it to
+    // a new temporary config. Note that the given config file may already have
+    // multiple syntax lines. Docker will use the final one in the first group
+    // of commented lines, so let's remove all of those and check whether the
+    // last one is allowed or not.
+    def headerLines = cfgLines.takeWhile { it.startsWith('#') }
+    def syntaxLines = headerLines.findAll { it =~ '^# *syntax *=' }
+
+    if (syntaxLines.size() == 0 || !hasAllowedFrontend(syntaxLines.last())) {
+      dockerfile = getTempFile("blubber.yaml.")
+      workflowScript.writeFile(
+        file: dockerfile,
+        text: "# syntax=${buildkitFrontend}\n" + cfgLines.drop(headerLines.size()).join("\n") + "\n",
+      )
+    }
 
     def ignoreFile = ".dockerignore"
     def ignoreFileBackup
@@ -207,9 +220,9 @@ class PipelineRunner implements Serializable {
         def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
 
         workflowScript.sh(sprintf(
-          'docker build %s--force-rm=true %s --iidfile %s --file %s %s',
-            imagePullPolicy == "always" ? "--pull " : "",
-            labelFlags, arg(imageIDFile), arg(dockerfile), arg(context),
+          'DOCKER_BUILDKIT=1 docker build %s--force-rm=true %s --iidfile %s --file %s --target %s %s',
+          imagePullPolicy == "always" ? "--pull " : "",
+          labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
         ))
 
         def imageID = workflowScript.readFile(imageIDFile).trim()
@@ -354,6 +367,25 @@ class PipelineRunner implements Serializable {
    */
   String getTempFile(String baseName) {
     getConfigFile("${baseName}${randomAlphanum(8)}")
+  }
+
+  /**
+   * Tests the given config string and returns whether the BuildKit frontend
+   * referenced in the syntax line is allowed to be used over ours. Users are
+   * allowed to use a frontend with the same image ref as ours but a different
+   * tag/version.
+   */
+  boolean hasAllowedFrontend(String cfg) {
+    def frontendMatch = cfg.readLines().first() =~ '^# *syntax *= *(.+)$'
+
+    if (frontendMatch) {
+      def ourRef = parseImageRef(buildkitFrontend)
+      def theirRef = parseImageRef(frontendMatch[0][1])
+
+      return ourRef && theirRef && ourRef.name == theirRef.name
+    }
+
+    return false
   }
 
   /**

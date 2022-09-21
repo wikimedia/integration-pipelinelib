@@ -5,7 +5,6 @@ import groovy.util.GroovyTestCase
 import java.io.FileNotFoundException
 import java.net.URI
 
-import org.wikimedia.integration.Blubber
 import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.Utility
 
@@ -110,20 +109,29 @@ class PipelineRunnerTest extends GroovyTestCase {
 
   void testBuild_generatesDockerfileAndBuilds() {
     def mockWorkflow = new MockFor(WorkflowScript)
-    def mockBlubber = new MockFor(Blubber)
-
-    mockBlubber.demand.generateDockerfile { variant ->
-      assert variant == "foo"
-
-      "BASE: foo\n"
-    }
 
     mockWorkflow.demand.with {
       fileExists { true }
 
+      readFile { args ->
+        assert args.file == ".pipeline/blubber.yaml"
+
+        """|version: v4
+           |base: ~
+           |variants:
+           |  foo: {}
+           |""".stripMargin()
+      }
+
       writeFile { args ->
-        assert args.text == "BASE: foo\n"
-        assert args.file ==~ /^\.pipeline\/Dockerfile\.[a-z0-9]+$/
+        assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+                               |version: v4
+                               |base: ~
+                               |variants:
+                               |  foo: {}
+                               |""".stripMargin()
+
+        assert args.file ==~ /^\.pipeline\/blubber\.yaml\.[a-z0-9]+$/
       }
 
       dir { context, Closure c ->
@@ -141,9 +149,10 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       sh { script ->
-        assert script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
-                           /--iidfile '.pipeline\/docker.iid.randomfoo' / +
-                           /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' 'foo\/dir'/)
+        assert script == ("DOCKER_BUILDKIT=1 docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+                          "--iidfile '.pipeline/docker.iid.randomfoo' " +
+                          "--file '.pipeline/blubber.yaml.randomfoo' " +
+                          "--target 'foo' 'foo/dir'")
       }
 
       readFile { path ->
@@ -158,20 +167,103 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.use {
-      mockBlubber.use {
-        def runner = new PipelineRunner(new WorkflowScript())
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        buildkitFrontend: "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0",
+      )
 
-        def variant = "foo"
-        def labels = [foo: "a", bar: "b"]
-        def context = URI.create("foo/dir")
-        def excludes = [
-          ".git",
-          "*.md",
-          "!README.md",
-        ]
+      def variant = "foo"
+      def labels = [foo: "a", bar: "b"]
+      def context = URI.create("foo/dir")
+      def excludes = [
+        ".git",
+        "*.md",
+        "!README.md",
+      ]
 
-        assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
+      assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
+    }
+  }
+
+  void testBuild_enforcesFrontend() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      fileExists { true }
+
+      readFile { args ->
+        assert args.file == ".pipeline/blubber.yaml"
+
+        // It seems that docker will use the last syntax= line in the header so
+        // let's make sure that is the one that is checked against ours
+        """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+           |# syntax=some.other.example/frontend
+           |version: v4
+           |base: ~
+           |variants:
+           |  foo: {}
+           |""".stripMargin()
       }
+
+      writeFile { args ->
+        assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+                               |version: v4
+                               |base: ~
+                               |variants:
+                               |  foo: {}
+                               |""".stripMargin()
+
+        assert args.file ==~ /^\.pipeline\/blubber\.yaml\.[a-z0-9]+$/
+      }
+
+      dir { context, Closure c ->
+        assert context == "foo/dir"
+        c()
+      }
+
+      fileExists { path -> false }
+
+      writeFile { args ->
+        assert args.text == ".git\n" +
+                            "*.md\n" +
+                            "!README.md\n"
+        assert args.file == ".dockerignore"
+      }
+
+      sh { script ->
+        assert script == ("DOCKER_BUILDKIT=1 docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+                          "--iidfile '.pipeline/docker.iid.randomfoo' " +
+                          "--file '.pipeline/blubber.yaml.randomfoo' " +
+                          "--target 'foo' 'foo/dir'")
+      }
+
+      readFile { path ->
+        assert '.pipeline/docker.iid.randomfoo'
+
+        return "sha256:bf1e86190382"
+      }
+
+      sh { script ->
+        assert script == "rm -f '.pipeline/docker.iid.randomfoo'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        buildkitFrontend: "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0",
+      )
+
+      def variant = "foo"
+      def labels = [foo: "a", bar: "b"]
+      def context = URI.create("foo/dir")
+      def excludes = [
+        ".git",
+        "*.md",
+        "!README.md",
+      ]
+
+      assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
     }
   }
 
@@ -415,6 +507,24 @@ class PipelineRunnerTest extends GroovyTestCase {
         runner.deploy("foo/name", "footag")
       }
     }
+  }
+
+  void testHasAllowedFrontend_allowsSameImageDifferentVersion() {
+    def runner = new PipelineRunner(
+      new WorkflowScript(),
+      buildkitFrontend: "some.example/buildkit/frontend:v0"
+    )
+
+    assert runner.hasAllowedFrontend("# syntax=some.example/buildkit/frontend:v1")
+  }
+
+  void testHasAllowedFrontend_disallowsDifferentImage() {
+    def runner = new PipelineRunner(
+      new WorkflowScript(),
+      buildkitFrontend: "some.example/buildkit/frontend:v0"
+    )
+
+    assert !runner.hasAllowedFrontend("# syntax=some.other.example/frontend:v0")
   }
 
   void testPurgeRelease_executesHelm() {

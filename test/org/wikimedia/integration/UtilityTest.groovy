@@ -93,6 +93,36 @@ class UtilityTestCase extends GroovyTestCase {
     ]
   }
 
+  void testParseImageRef_simpleImageAndTag() {
+    def ref = "some.example/image/ref:v0"
+
+    def expected = [
+      name: "some.example/image/ref",
+      tag: "v0",
+      digest: null,
+    ]
+
+    assert parseImageRef(ref) == expected
+  }
+
+  void testParseImageRef_withDigest() {
+    def ref = "some.example/image/ref:v0@sha256:" + ("x" * 36)
+
+    def expected = [
+      name: "some.example/image/ref",
+      tag: "v0",
+      digest: "sha256:" + ("x" * 36),
+    ]
+
+    assert parseImageRef(ref) == expected
+  }
+
+  void testParseImageRef_badRef() {
+    def badRef = "what|is|this"
+
+    assert parseImageRef(badRef) == null
+  }
+
   void testRandomAlphanum() {
     def expectedChars = ('a'..'z') + ('0'..'9')
     def alphanum = randomAlphanum(12)

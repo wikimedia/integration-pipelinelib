@@ -7,6 +7,14 @@ import com.cloudbees.groovy.cps.NonCPS
  */
 class Utility {
   /**
+   * Official regular expression used to represent and capture parts of OCI
+   * image references. The capture groups are: image_name, image_tag, digest.
+   *
+   * @see https://github.com/distribution/distribution/blob/main/reference/regexp.go
+   */
+  private final static OCI_IMAGE_REF = '''^((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?/)?[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?)(?::([\\w][\\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$'''
+
+  /**
    * Quotes the given shell argument.
    *
    * @param argument Shell argument.
@@ -109,6 +117,26 @@ class Utility {
     }
 
     return result
+  }
+
+  /**
+   * Parses the given OCI image ref into constituent parts: (name, tag,
+   * digest). If the given string is an invalid ref pattern, null is returned.
+   *
+   * @param ref Full image ref string.
+   */
+  static Map parseImageRef(String ref) {
+    def match = (ref =~ OCI_IMAGE_REF)
+
+    if (!match) {
+      return null
+    }
+
+    return [
+      name: match[0][1],
+      tag: match[0][2],
+      digest: match[0][3],
+    ]
   }
 
   /**

@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 GRADLE := $(shell command -v gradle)
+GRADLE_FLAGS :=
 BLUBBER := $(shell command -v blubber)
 DOCKER := $(shell command -v docker)
 
@@ -10,6 +11,8 @@ DOCKER_RUN := docker run --rm --label $(DOCKER_LABEL) --name $(DOCKER_TAG)
 DOCKER_STOP := docker stop "$(DOCKER_TAG)"
 DOCKER_STOP_ALL = docker stop $(shell docker ps -qf label=$(DOCKER_LABEL))
 DOCKER_RMI = docker rmi $(shell docker images -qf label=$(DOCKER_LABEL))
+DOCKER_BUILDKIT := 1
+export DOCKER_BUILDKIT
 
 ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
 	$(eval JENKINS_HOST := $(patsubst tcp://%,%,$(DOCKER_HOST)))
@@ -36,11 +39,11 @@ docs:
 
 test:
 ifneq (,$(GRADLE))
-	gradle test
+	$(GRADLE) test $(GRADLE_FLAGS)
 	@exit 0
 else ifneq (,$(and $(BLUBBER), $(DOCKER)))
-	blubber .pipeline/blubber.yaml test | docker build -t "$(DOCKER_TAG)" -f - .
-	docker run --rm -it "$(DOCKER_TAG)"
+	docker build --target test -f .pipeline/blubber.yaml -t "$(DOCKER_TAG)" .
+	docker run --rm -it "$(DOCKER_TAG)" $(GRADLE_FLAGS)
 	@exit 0
 else
 	@echo "Can't find Gradle or Blubber/Docker. Install one to run tests."
