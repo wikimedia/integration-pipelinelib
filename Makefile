@@ -10,6 +10,8 @@ DOCKER_RUN := docker run --rm --label $(DOCKER_LABEL) --name $(DOCKER_TAG)
 DOCKER_STOP := docker stop "$(DOCKER_TAG)"
 DOCKER_STOP_ALL = docker stop $(shell docker ps -qf label=$(DOCKER_LABEL))
 DOCKER_RMI = docker rmi $(shell docker images -qf label=$(DOCKER_LABEL))
+DOCKER_BUILDKIT := 1
+export DOCKER_BUILDKIT
 
 ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
 	$(eval JENKINS_HOST := $(patsubst tcp://%,%,$(DOCKER_HOST)))
@@ -38,7 +40,7 @@ ifneq (,$(GRADLE))
 	gradle test
 	@exit 0
 else ifneq (,$(and $(BLUBBER), $(DOCKER)))
-	blubber .pipeline/blubber.yaml test | docker build -t "$(DOCKER_TAG)" -f - .
+	docker build --target test -f .pipeline/blubber.yaml -t "$(DOCKER_TAG)" .
 	docker run --rm -it "$(DOCKER_TAG)"
 	@exit 0
 else
