@@ -33,9 +33,9 @@ class PipelineRunner implements Serializable {
   def blubberConfig = "blubber.yaml"
 
   /**
-   * Image ref of the buildkit frontend to use during builds.
+   * Base URL for the Blubberoid service.
    */
-  def buildkitFrontend = "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:0.9.0"
+  def blubberoidURL = "https://blubberoid.wikimedia.org/v1/"
 
   /**
    * Directory in which pipeline configuration is stored.
@@ -183,15 +183,10 @@ class PipelineRunner implements Serializable {
       throw new RuntimeException("excludes may only be used with a local build context")
     }
 
-    def dockerfile = getTempFile("blubber.yaml.")
+    def blubber = new Blubber(workflowScript, cfg, blubberoidURL)
+    def dockerfile = getTempFile("Dockerfile.")
 
-    // Enforce our configured buildkit frontend by prefixing the config with
-    // the magic `# syntax=` instruction
-    // See https://docs.docker.com/engine/reference/builder/#syntax
-    workflowScript.writeFile(
-      file: dockerfile,
-      text: "# syntax=${buildkitFrontend}\n" + workflowScript.readFile(file: cfg),
-    )
+    workflowScript.writeFile(text: blubber.generateDockerfile(variant), file: dockerfile)
 
     def ignoreFile = ".dockerignore"
     def ignoreFileBackup
@@ -212,9 +207,9 @@ class PipelineRunner implements Serializable {
         def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
 
         workflowScript.sh(sprintf(
-          'DOCKER_BUILDKIT=1 docker build %s--force-rm=true %s --iidfile %s --file %s --target %s %s',
-          imagePullPolicy == "always" ? "--pull " : "",
-          labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
+          'docker build %s--force-rm=true %s --iidfile %s --file %s %s',
+            imagePullPolicy == "always" ? "--pull " : "",
+            labelFlags, arg(imageIDFile), arg(dockerfile), arg(context),
         ))
 
         def imageID = workflowScript.readFile(imageIDFile).trim()

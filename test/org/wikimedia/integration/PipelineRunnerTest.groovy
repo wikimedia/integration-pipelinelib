@@ -5,6 +5,7 @@ import groovy.util.GroovyTestCase
 import java.io.FileNotFoundException
 import java.net.URI
 
+import org.wikimedia.integration.Blubber
 import org.wikimedia.integration.PipelineRunner
 import org.wikimedia.integration.Utility
 
@@ -109,29 +110,20 @@ class PipelineRunnerTest extends GroovyTestCase {
 
   void testBuild_generatesDockerfileAndBuilds() {
     def mockWorkflow = new MockFor(WorkflowScript)
+    def mockBlubber = new MockFor(Blubber)
+
+    mockBlubber.demand.generateDockerfile { variant ->
+      assert variant == "foo"
+
+      "BASE: foo\n"
+    }
 
     mockWorkflow.demand.with {
       fileExists { true }
 
-      readFile { args ->
-        assert args.file == ".pipeline/blubber.yaml"
-
-        """|version: v4
-           |base: ~
-           |variants:
-           |  foo: {}
-           |""".stripMargin()
-      }
-
       writeFile { args ->
-        assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:0.9.0
-                               |version: v4
-                               |base: ~
-                               |variants:
-                               |  foo: {}
-                               |""".stripMargin()
-
-        assert args.file ==~ /^\.pipeline\/blubber\.yaml\.[a-z0-9]+$/
+        assert args.text == "BASE: foo\n"
+        assert args.file ==~ /^\.pipeline\/Dockerfile\.[a-z0-9]+$/
       }
 
       dir { context, Closure c ->
@@ -149,10 +141,9 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       sh { script ->
-        assert script == ("DOCKER_BUILDKIT=1 docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
-                          "--iidfile '.pipeline/docker.iid.randomfoo' " +
-                          "--file '.pipeline/blubber.yaml.randomfoo' " +
-                          "--target 'foo' 'foo/dir'")
+        assert script ==~ (/^docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' / +
+                           /--iidfile '.pipeline\/docker.iid.randomfoo' / +
+                           /--file '\.pipeline\/Dockerfile\.[a-z0-9]+' 'foo\/dir'/)
       }
 
       readFile { path ->
@@ -167,18 +158,20 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
 
     mockWorkflow.use {
-      def runner = new PipelineRunner(new WorkflowScript())
+      mockBlubber.use {
+        def runner = new PipelineRunner(new WorkflowScript())
 
-      def variant = "foo"
-      def labels = [foo: "a", bar: "b"]
-      def context = URI.create("foo/dir")
-      def excludes = [
-        ".git",
-        "*.md",
-        "!README.md",
-      ]
+        def variant = "foo"
+        def labels = [foo: "a", bar: "b"]
+        def context = URI.create("foo/dir")
+        def excludes = [
+          ".git",
+          "*.md",
+          "!README.md",
+        ]
 
-      assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
+        assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
+      }
     }
   }
 
