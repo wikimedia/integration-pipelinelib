@@ -148,12 +148,32 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.file == ".dockerignore"
       }
 
+      sh { args ->
+        assert args.returnStdout
+        assert args.script == "mktemp -d"
+
+        return "/tmp/dir\n"
+      }
+
+      writeJSON { args ->
+        assert args.file == "/tmp/dir/config.json"
+        assert args.json == [ credsStore: "environment" ]
+      }
+
       sh { script ->
-        assert script == ("DOCKER_BUILDKIT=1 docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+        assert script == ("DOCKER_BUILDKIT=1 docker --config '/tmp/dir' " +
+                          "build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
                           "--file '.pipeline/blubber.yaml.randomfoo' " +
                           "--target 'foo' 'foo/dir'")
       }
+
+      dir { path, c ->
+        assert path == "/tmp/dir"
+        c()
+      }
+
+      deleteDir {}
 
       readFile { path ->
         assert '.pipeline/docker.iid.randomfoo'
@@ -230,12 +250,32 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.file == ".dockerignore"
       }
 
-      sh { script ->
-        assert script == ("DOCKER_BUILDKIT=1 docker build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
-                          "--iidfile '.pipeline/docker.iid.randomfoo' " +
-                          "--file '.pipeline/blubber.yaml.randomfoo' " +
-                          "--target 'foo' 'foo/dir'")
+      sh { args ->
+        assert args.returnStdout
+        assert args.script == "mktemp -d"
+
+        return "/tmp/dir\n"
       }
+
+      writeJSON { args ->
+        assert args.file == "/tmp/dir/config.json"
+        assert args.json == [ credsStore: "environment" ]
+      }
+
+      sh { script ->
+        assert script == ("DOCKER_BUILDKIT=1 docker --config '/tmp/dir' " +
+                          "build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
+                           "--file '.pipeline/blubber.yaml.randomfoo' " +
+                           "--target 'foo' 'foo/dir'")
+      }
+
+      dir { path, c ->
+        assert path == "/tmp/dir"
+        c()
+      }
+
+      deleteDir {}
 
       readFile { path ->
         assert '.pipeline/docker.iid.randomfoo'

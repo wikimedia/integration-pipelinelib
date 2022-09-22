@@ -227,11 +227,18 @@ class PipelineRunner implements Serializable {
       return withTempFile("docker.iid.") { imageIDFile ->
         def labelFlags = labels.collect { k, v -> "--label ${arg(k + "=" + v)}" }.join(" ")
 
-        workflowScript.sh(sprintf(
-          'DOCKER_BUILDKIT=1 docker build %s--force-rm=true %s --iidfile %s --file %s --target %s %s',
-          imagePullPolicy == "always" ? "--pull " : "",
-          labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
-        ))
+        // Note that buildkit fails when attempting to use a credential store
+        // that cannot run headless. Enforce our "environment" credential
+        // helper to workaround this issue.
+        // See https://github.com/moby/buildkit/issues/1078
+        withDocker([ credsStore: "environment" ]) { docker ->
+          workflowScript.sh(sprintf(
+            'DOCKER_BUILDKIT=1 %s build %s--force-rm=true %s --iidfile %s --file %s --target %s %s',
+            docker,
+            imagePullPolicy == "always" ? "--pull " : "",
+            labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
+          ))
+        }
 
         def imageID = workflowScript.readFile(imageIDFile).trim()
         return imageID.startsWith('sha256:') ? imageID.substring(7) : imageID
@@ -459,11 +466,7 @@ class PipelineRunner implements Serializable {
         workflowScript.sh("sudo /usr/local/bin/docker-pusher ${arg(nameAndTag)}")
         break
       case "docker-push":
-        withTempDirectory() { tempDir ->
-          workflowScript.writeJSON(
-            file: [tempDir, "config.json"].join("/"),
-            json: [ credHelpers: [ (pushRegistry): "environment" ] ])
-
+        withDocker([ credHelpers: [ (pushRegistry): "environment" ] ]) { docker ->
           workflowScript.withEnv(["DOCKER_CREDENTIAL_HOST=${arg(registry)}"]) {
             workflowScript.withCredentials(
               [[
@@ -473,7 +476,7 @@ class PipelineRunner implements Serializable {
                 usernameVariable: 'DOCKER_CREDENTIAL_PASSWORD'
               ]]
             ) {
-              workflowScript.sh("docker --config ${arg(tempDir)} push ${arg(nameAndTag)}")
+              workflowScript.sh("${docker} push ${arg(nameAndTag)}")
             }
           }
         }
@@ -771,6 +774,20 @@ class PipelineRunner implements Serializable {
     withTempFile("blubber.yaml.") { path ->
       workflowScript.writeYaml(file: path, data: bc)
       withBlubberConfig(path - "${configPath}/", c)
+    }
+  }
+
+  /**
+   * Evaluates the given closure, passing it a docker command that uses the
+   * given Docker configuration.
+   */
+  void withDocker(Map config, Closure c) {
+    withTempDirectory() { tempDir ->
+      workflowScript.writeJSON(
+        file: [ tempDir, "config.json" ].join("/"),
+        json: config,
+      )
+      c("docker --config ${arg(tempDir)}")
     }
   }
 
