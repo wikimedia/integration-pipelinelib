@@ -106,6 +106,9 @@ class PipelineBuilder implements Serializable {
       }
     }
 
+    // Validate pipelines prior to executing any of them
+    plines.each { it.validate() }
+
     for (def pline in plines) {
       def stack = pline.stack()
 
@@ -156,9 +159,7 @@ class PipelineBuilder implements Serializable {
    */
   List pipelines(cfg) {
     cfg.pipelines.collect { pname, pconfig ->
-      def pline = new Pipeline(pname, pconfig, runnerOverrides, allowedActions)
-      pline.validate()
-      pline
+      new Pipeline(pname, pconfig, runnerOverrides, allowedActions)
     }
   }
 
