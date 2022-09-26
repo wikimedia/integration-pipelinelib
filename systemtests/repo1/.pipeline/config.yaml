@@ -166,3 +166,16 @@ pipelines:
 #          email:
 #            subject: >-
 #              Failure notification ${setup.pipeline}/${.stage}
+
+# The following pipeline can be used to manually test validation of image
+# names
+#
+#  test-image-name-validation:
+#    blubberfile: blubber.yaml
+#    stages:
+#      - name: publish
+#        build: echo
+#        run: false
+#        publish:
+#          image:
+#            name: some-other-repo-name
