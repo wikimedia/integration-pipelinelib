@@ -13,6 +13,12 @@ import org.wikimedia.integration.PipelineStage
 
 class PipelineBuilder implements Serializable {
   /**
+   * List of stage actions (publish, promote, trigger, etc.) allowed during
+   * this build.
+   */
+  List allowedActions
+
+  /**
    * Path to the project's pipeline configuration file.
    */
   String configPath
@@ -30,11 +36,14 @@ class PipelineBuilder implements Serializable {
    *                  {@link runnerOverrides}.
    * @param pipelineConfigPath Path to the pipeline configuration relative to
    *                           the project's root directory.
+   * @param allowedActions List of stage actions allowed during this
+   *                       build. If null is passed, all actions are allowed.
    *
    */
-  PipelineBuilder(Map overrides = [:], String pipelineConfigPath) {
+  PipelineBuilder(Map overrides = [:], String pipelineConfigPath, List allowedActions = null) {
     configPath = pipelineConfigPath
     runnerOverrides = overrides
+    this.allowedActions = allowedActions
   }
 
   /**
@@ -147,7 +156,7 @@ class PipelineBuilder implements Serializable {
    */
   List pipelines(cfg) {
     cfg.pipelines.collect { pname, pconfig ->
-      def pline = new Pipeline(pname, pconfig, runnerOverrides)
+      def pline = new Pipeline(pname, pconfig, runnerOverrides, allowedActions)
       pline.validate()
       pline
     }

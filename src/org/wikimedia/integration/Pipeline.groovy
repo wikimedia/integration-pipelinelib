@@ -77,18 +77,20 @@ class Pipeline implements Serializable {
   private static String baseNodeLabel = "pipelinelib"
   private Map stagesConfig
   private Map runnerOverrides
+  private Set allowedActions
   private List<List> execution
 
   /**
    * Constructs a new pipeline with the given name and configuration.
    */
-  Pipeline(String pipelineName, Map config, Map overrides = [:]) {
+  Pipeline(String pipelineName, Map config, Map overrides = [:], List allowedActions = null) {
     name = pipelineName
     blubberfile = config.blubberfile ?: "${name}/blubber.yaml"
     directory = config.directory ?: "."
     fetchOptions = config.fetch ?: [:]
     notify = config.notify ?: [:]
     runnerOverrides = overrides
+    this.allowedActions = allowedActions as Set
 
     stagesConfig = config.stages.collectEntries {
       [(it.name): PipelineStage.defaultConfig(it)]
@@ -163,6 +165,20 @@ class Pipeline implements Serializable {
 
     if (!(execution instanceof List && execution.every { it instanceof List})) {
       errors += "`execution` graph must be a list of lists (graph branches)"
+    }
+
+    if (allowedActions != null) {
+      // The name field is not an action at all, so allow it to be present
+      def allow = allowedActions + ["name"]
+
+      // Ensure all stage actions are in the allow list
+      stagesConfig.each { stage, config ->
+        config.each { action, _ ->
+          if (!(action in allow)) {
+            errors += "stage `${stage}` contains an action (`${action}`) that is not allowed by this pipeline"
+          }
+        }
+      }
     }
 
     if (errors) {

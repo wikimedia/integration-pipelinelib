@@ -211,6 +211,24 @@ class PipelineTest extends GroovyTestCase {
     assert e.errors[0] == "`execution` graph must be a list of lists (graph branches)"
   }
 
+  void testValidate_containsProhibitedActions() {
+    def pipeline = new Pipeline(
+      "foo",
+      [
+        stages: [[name: "foo", publish: [ image: true ]]],
+      ],
+      [:],
+      [ "build", "run" ], // allow only certain actions
+    )
+
+    def e = shouldFail(Pipeline.ValidationException) {
+      pipeline.validate()
+    }
+
+    assert e.errors.size() == 1
+    assert e.errors[0] == "stage `foo` contains an action (`publish`) that is not allowed by this pipeline"
+  }
+
   void testStack() {
     def pipeline = new Pipeline("foo", [
       stages: [[name: "stageA"], [name: "stageB"], [name: "stageC"]],
