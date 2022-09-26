@@ -1,5 +1,6 @@
 package org.wikimedia.integration
 
+import com.cloudbees.groovy.cps.NonCPS
 import org.codehaus.groovy.GroovyException
 
 import static org.wikimedia.integration.PipelineStage.*
@@ -206,6 +207,7 @@ class Pipeline implements Serializable {
   class ValidationException extends GroovyException {
     def errors
 
+    @NonCPS
     String getMessage() {
       def msgs = errors.collect { " - ${it}" }.join("\n")
 

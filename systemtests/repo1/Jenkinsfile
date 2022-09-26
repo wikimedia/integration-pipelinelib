@@ -2,5 +2,9 @@
 
 def triggerJobs = ['totally-triggered']
 
-def builder = new PipelineBuilder([allowedTriggerJobs: triggerJobs], ".pipeline/config.yaml")
+def builder = new PipelineBuilder(
+  [allowedTriggerJobs: triggerJobs],
+  ".pipeline/config.yaml",
+  PipelineStage.STEPS
+)
 builder.build(this, params.PLIB_PIPELINE)
