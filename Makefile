@@ -17,6 +17,7 @@ ifneq (,$(and $(DOCKER), $(DOCKER_HOST)))
 endif
 
 JENKINS_HOST ?= localhost
+JENKINS_HOST_PORT ?= 8080
 TEST_PIPELINE ?=
 
 .PHONY: test
@@ -47,22 +48,22 @@ else
 endif
 
 systemtest:
-	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
+	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):$(JENKINS_HOST_PORT))
 	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
 	$(eval JENKINS_COOKIES := $(shell mktemp -t pipelinelib-systemtest.XXXXXX.cookies))
 	$(eval BUILD_OUTPUT := $(shell mktemp -t pipelinelib-systemtest.XXXXXX))
 
 	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
 	$(DOCKER_RUN) -d \
-	  -p 8080:8080 \
+	  -p $(JENKINS_HOST_PORT):8080 \
 	  -v /var/run/docker.sock:/var/run/docker.host.sock \
 	  $(DOCKER_TAG)
 
-	@while ! curl -s http://$(JENKINS_HOST):8080/ > /dev/null; do \
+	@while ! curl -s http://$(JENKINS_HOST):$(JENKINS_HOST_PORT)/ > /dev/null; do \
 	  echo "waiting for jenkins..."; \
 	  sleep 1; \
 	done
-	@while curl -s http://$(JENKINS_HOST):8080/ | grep -q "is getting ready to work"; do \
+	@while curl -s http://$(JENKINS_HOST):$(JENKINS_HOST_PORT)/ | grep -q "is getting ready to work"; do \
 	  echo "waiting for jenkins..."; \
 	  sleep 1; \
 	done
