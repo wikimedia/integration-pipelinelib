@@ -19,6 +19,16 @@ class PipelineStage implements Serializable {
   static final List STEPS = ['build', 'run', 'copy', 'publish', 'promote', 'deploy', 'exports', 'trigger']
   static final URI CHARTSREPO = URI.create('https://gerrit.wikimedia.org/r/operations/deployment-charts.git')
 
+  /**
+   * Image names must be prefixed by or match one of the following. Note that
+   * context variables within these strings are substituted just prior to
+   * enforcement.
+   */
+  static final List ALLOWED_IMAGE_PREFIXES = [
+    '${setup.project}',
+    '${setup.projectShortName}',
+  ]
+
   Pipeline pipeline
   String name
   Map config
@@ -754,6 +764,23 @@ class PipelineStage implements Serializable {
       def imageName = sanitizeImageRef(context % publishImage.name)
       def imageTags = ([context % publishImage.tag] + (context % publishImage.tags)).collect {
         sanitizeImageRef(it)
+      }
+
+      // enforce image name prefixes, allowing either exact matches or
+      // '<prefix>-*'
+      def allowedPrefixes = []
+      def nameIsAllowed = ALLOWED_IMAGE_PREFIXES.any { prefix ->
+        def allowedPrefix = sanitizeImageRef(context % prefix)
+        allowedPrefixes += allowedPrefix
+        imageName == allowedPrefix || imageName.startsWith("${allowedPrefix}-")
+      }
+
+      if (!nameIsAllowed) {
+        throw new RuntimeException(
+          'the published image name (`' + imageName + '`) must either match ' +
+          'or be prefixed by the full or short project name ' +
+          '(`' + allowedPrefixes.join('` or `') + '`)'
+        )
       }
 
       // omit empty strings
