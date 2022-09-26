@@ -49,7 +49,7 @@ endif
 systemtest:
 	$(eval JENKINS_URL := http://docker:docker@$(JENKINS_HOST):8080)
 	$(eval JENKINS_BLUE_URL := $(JENKINS_URL)/blue/organizations/jenkins)
-	$(eval JENKINS_COOKIES := $(shell mktemp -t pipelinelib-systemtest.cookies))
+	$(eval JENKINS_COOKIES := $(shell mktemp -t pipelinelib-systemtest.XXXXXX.cookies))
 	$(eval BUILD_OUTPUT := $(shell mktemp -t pipelinelib-systemtest.XXXXXX))
 
 	$(DOCKER_BUILD) -f systemtests/jenkins/Dockerfile .
