@@ -190,7 +190,15 @@ class PipelineRunner implements Serializable {
     // multiple syntax lines. Docker will use the final one in the first group
     // of commented lines, so let's remove all of those and check whether the
     // last one is allowed or not.
-    def headerLines = cfgLines.takeWhile { it.startsWith('#') }
+    def headerLines = []
+
+    // Avoid using takeWhile here since it's broken in groovy-cps
+    cfgLines.each {
+      if (it.startsWith('#')) {
+        headerLines += it
+      }
+    }
+
     def syntaxLines = headerLines.findAll { it =~ '^# *syntax *=' }
 
     if (syntaxLines.size() == 0 || !hasAllowedFrontend(syntaxLines.last())) {
