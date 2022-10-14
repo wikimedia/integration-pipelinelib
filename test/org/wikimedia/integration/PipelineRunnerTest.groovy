@@ -134,12 +134,18 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.file ==~ /^\.pipeline\/blubber\.yaml\.[a-z0-9]+$/
       }
 
+      pwd { "/workspace" }
+
       dir { context, Closure c ->
-        assert context == "foo/dir"
+        assert context == "foo/context/dir"
         c()
       }
 
-      fileExists { path -> false }
+      fileExists { path -> true }
+
+      sh {
+        assert it == "cp '.dockerignore' '/workspace/.pipeline/dockerignore.bak.randomfoo'"
+      }
 
       writeFile { args ->
         assert args.text == ".git\n" +
@@ -165,7 +171,7 @@ class PipelineRunnerTest extends GroovyTestCase {
                           "build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
                           "--file '.pipeline/blubber.yaml.randomfoo' " +
-                          "--target 'foo' 'foo/dir'")
+                          "--target 'foo' 'foo/context/dir'")
       }
 
       dir { path, c ->
@@ -184,6 +190,15 @@ class PipelineRunnerTest extends GroovyTestCase {
       sh { script ->
         assert script == "rm -f '.pipeline/docker.iid.randomfoo'"
       }
+
+      dir { path, c ->
+        assert path == "foo/context/dir"
+        c()
+      }
+
+      sh {
+        assert it == "mv '/workspace/.pipeline/dockerignore.bak.randomfoo' '.dockerignore'"
+      }
     }
 
     mockWorkflow.use {
@@ -194,7 +209,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       def variant = "foo"
       def labels = [foo: "a", bar: "b"]
-      def context = URI.create("foo/dir")
+      def context = URI.create("foo/context/dir")
       def excludes = [
         ".git",
         "*.md",
@@ -235,6 +250,8 @@ class PipelineRunnerTest extends GroovyTestCase {
 
         assert args.file ==~ /^\.pipeline\/blubber\.yaml\.[a-z0-9]+$/
       }
+
+      pwd { "/workspace" }
 
       dir { context, Closure c ->
         assert context == "foo/dir"
