@@ -118,6 +118,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
         """|version: v4
            |base: ~
+           |# some comment
            |variants:
            |  foo: {}
            |""".stripMargin()
@@ -127,6 +128,7 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
                                |version: v4
                                |base: ~
+                               |# some comment
                                |variants:
                                |  foo: {}
                                |""".stripMargin()

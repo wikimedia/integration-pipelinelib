@@ -193,10 +193,11 @@ class PipelineRunner implements Serializable {
     def headerLines = []
 
     // Avoid using takeWhile here since it's broken in groovy-cps
-    cfgLines.each {
-      if (it.startsWith('#')) {
-        headerLines += it
+    for (def line in cfgLines) {
+      if (!line.startsWith('#')) {
+        break
       }
+      headerLines += line
     }
 
     def syntaxLines = headerLines.findAll { it =~ '^# *syntax *=' }
