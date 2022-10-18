@@ -211,12 +211,13 @@ class PipelineRunner implements Serializable {
     }
 
     def ignoreFile = ".dockerignore"
-    def ignoreFileBackup
+    def ignoreFileBackupCreated = false
+    def ignoreFileBackup = getTempFile("dockerignore.bak.", true)
 
     if (excludes) {
       workflowScript.dir(context.path) {
         if (workflowScript.fileExists(ignoreFile)) {
-          ignoreFileBackup = getTempFile("dockerignore.bak.")
+          ignoreFileBackupCreated = true
           workflowScript.sh "cp ${arg(ignoreFile)} ${arg(ignoreFileBackup)}"
         }
 
@@ -245,7 +246,7 @@ class PipelineRunner implements Serializable {
         return imageID.startsWith('sha256:') ? imageID.substring(7) : imageID
       }
     } finally {
-      if (ignoreFileBackup) {
+      if (ignoreFileBackupCreated) {
         workflowScript.dir(context.path) {
           workflowScript.sh "mv ${arg(ignoreFileBackup)} ${arg(ignoreFile)}"
         }
@@ -371,18 +372,26 @@ class PipelineRunner implements Serializable {
    * Returns a path under configPath to the given config file.
    *
    * @param filePath Relative file path.
+   * @param absolute Return the absolute path.
    */
-  String getConfigFile(String filePath) {
-    [configPath, filePath].join("/")
+  String getConfigFile(String filePath, boolean absolute = false) {
+    def path = [configPath, filePath]
+
+    if (absolute) {
+      path.add(0, workflowScript.pwd())
+    }
+
+    path.join("/")
   }
 
   /**
    * Returns a path under configPath to a temp file with the given base name.
    *
    * @param baseName File base name.
+   * @param absolute Return the absolute path.
    */
-  String getTempFile(String baseName) {
-    getConfigFile("${baseName}${randomAlphanum(8)}")
+  String getTempFile(String baseName, boolean absolute = false) {
+    getConfigFile("${baseName}${randomAlphanum(8)}", absolute)
   }
 
   /**
