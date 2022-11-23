@@ -1,7 +1,6 @@
 SHELL := /bin/bash
 GRADLE := $(shell command -v gradle)
 GRADLE_FLAGS :=
-BLUBBER := $(shell command -v blubber)
 DOCKER := $(shell command -v docker)
 
 DOCKER_TAG := pipelinelib-tests-$(shell date -u +%Y%m%d-%H%M%S)
@@ -41,12 +40,12 @@ test:
 ifneq (,$(GRADLE))
 	$(GRADLE) test $(GRADLE_FLAGS)
 	@exit 0
-else ifneq (,$(and $(BLUBBER), $(DOCKER)))
+else ifneq (,$(DOCKER))
 	docker build --target test -f .pipeline/blubber.yaml -t "$(DOCKER_TAG)" .
 	docker run --rm -it "$(DOCKER_TAG)" $(GRADLE_FLAGS)
 	@exit 0
 else
-	@echo "Can't find Gradle or Blubber/Docker. Install one to run tests."
+	@echo "Can't find Gradle or Docker. Install one to run tests."
 	@exit 1
 endif
 
