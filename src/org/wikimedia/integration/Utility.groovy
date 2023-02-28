@@ -125,6 +125,7 @@ class Utility {
    *
    * @param ref Full image ref string.
    */
+  @NonCPS
   static Map parseImageRef(String ref) {
     def match = (ref =~ OCI_IMAGE_REF)
 
