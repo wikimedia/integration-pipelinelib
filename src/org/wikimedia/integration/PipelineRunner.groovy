@@ -33,19 +33,8 @@ class PipelineRunner implements Serializable {
 
   /**
    * Image ref of the buildkit frontend to use during builds.
-   * The image name used here must also be listed in {@link buildkitAllowedFrontends}.
    */
   def buildkitFrontend = "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.11.1"
-
-  /**
-   * Allowed BuildKit frontend image names.
-   * The image names listed here are allowed to be used instead of the default {@link buildkitFrontend},
-   * via a syntax line. (Any version of these images is allowed.)
-   */
-  def buildkitAllowedFrontends = [
-    "docker-registry.wikimedia.org/wikimedia/blubber-buildkit",
-    "docker-registry.wikimedia.org/repos/releng/blubber/buildkit"
-  ] as Set
 
   /**
    * Directory in which pipeline configuration is stored.
@@ -153,9 +142,6 @@ class PipelineRunner implements Serializable {
     this.workflowScript = workflowScript
 
     settings.each { prop, value -> this.@"${prop}" = value }
-
-    def ourRef = parseImageRef(buildkitFrontend)
-    assert ourRef && ourRef.name in buildkitAllowedFrontends
   }
 
   /**
@@ -410,15 +396,18 @@ class PipelineRunner implements Serializable {
 
   /**
    * Tests the given config string and returns whether the BuildKit frontend
-   * referenced in the syntax line is allowed to be used over ours.
+   * referenced in the syntax line is allowed to be used over ours. Users are
+   * allowed to use a frontend with the same image ref as ours but a different
+   * tag/version.
    */
   boolean hasAllowedFrontend(String cfg) {
     def frontendMatch = cfg.readLines().first() =~ '^# *syntax *= *(.+)$'
 
     if (frontendMatch) {
+      def ourRef = parseImageRef(buildkitFrontend)
       def theirRef = parseImageRef(frontendMatch[0][1])
 
-      return theirRef && theirRef.name in buildkitAllowedFrontends
+      return ourRef && theirRef && ourRef.name == theirRef.name
     }
 
     return false

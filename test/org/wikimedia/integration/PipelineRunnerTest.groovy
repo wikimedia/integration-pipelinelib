@@ -568,40 +568,22 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
-  void testHasAllowedFrontend_allowsDefaultImageDifferentVersion() {
+  void testHasAllowedFrontend_allowsSameImageDifferentVersion() {
     def runner = new PipelineRunner(
       new WorkflowScript(),
-      buildkitFrontend: "some.example/buildkit/frontend:v0",
-      buildkitAllowedFrontends: ["some.example/buildkit/frontend"] as Set
+      buildkitFrontend: "some.example/buildkit/frontend:v0"
     )
 
     assert runner.hasAllowedFrontend("# syntax=some.example/buildkit/frontend:v1")
   }
 
-  void testHasAllowedFrontend_allowsAlternateImage() {
+  void testHasAllowedFrontend_disallowsDifferentImage() {
     def runner = new PipelineRunner(
       new WorkflowScript(),
-      buildkitFrontend: "some.example/buildkit/frontend:v0",
-      buildkitAllowedFrontends: [
-        "some.example/buildkit/frontend",
-        "other.example/buildkit/frontend"
-      ] as Set
+      buildkitFrontend: "some.example/buildkit/frontend:v0"
     )
 
-    assert runner.hasAllowedFrontend("# syntax=other.example/buildkit/frontend:v1")
-  }
-
-  void testHasAllowedFrontend_disallowsUnknownImage() {
-    def runner = new PipelineRunner(
-      new WorkflowScript(),
-      buildkitFrontend: "some.example/buildkit/frontend:v0",
-      buildkitAllowedFrontends: [
-        "some.example/buildkit/frontend",
-        "other.example/buildkit/frontend"
-      ] as Set
-    )
-
-    assert !runner.hasAllowedFrontend("# syntax=unknown.example/frontend:v0")
+    assert !runner.hasAllowedFrontend("# syntax=some.other.example/frontend:v0")
   }
 
   void testPurgeRelease_executesHelm() {
