@@ -1,5 +1,5 @@
 version: v3
-base: docker-registry.wikimedia.org/wikimedia-jessie
+base: docker-registry.wikimedia.org/bookworm:20240303
 apt: { packages: [make] }
 
 variants:

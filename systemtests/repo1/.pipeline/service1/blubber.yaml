@@ -1,5 +1,5 @@
 version: v4
-base: docker-registry.wikimedia.org/wikimedia-stretch
+base: docker-registry.wikimedia.org/bookworm:20240303
 apt: { packages: [make] }
 
 variants:
@@ -11,5 +11,5 @@ variants:
     entrypoint: [make, lint]
   production:
     copies: [local]
-    apt: { packages: [netcat] }
+    apt: { packages: [netcat-traditional] }
     entrypoint: [./server.sh]
