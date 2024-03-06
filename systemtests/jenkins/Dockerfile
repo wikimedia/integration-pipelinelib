@@ -1,6 +1,6 @@
-ARG VERSION=2.318
+ARG VERSION=2.448
 
-FROM jenkins/jenkins:${VERSION}-slim
+FROM jenkins/jenkins:${VERSION}-slim AS jenkins
 
 ARG VERSION
 
@@ -35,7 +35,8 @@ RUN echo $VERSION > /usr/share/jenkins/ref/jenkins.install.UpgradeWizard.state
 RUN echo $VERSION > /usr/share/jenkins/ref/jenkins.install.InstallUtil.lastExecVersion
 
 COPY systemtests/jenkins/plugins.txt /usr/share/jenkins/ref/plugins.txt
-RUN /usr/local/bin/install-plugins.sh < /usr/share/jenkins/ref/plugins.txt
+
+RUN /usr/bin/jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
 
 COPY systemtests/jenkins/ref/* /usr/share/jenkins/ref/
 COPY systemtests/jenkins/init.groovy.d/*.groovy /usr/share/jenkins/ref/init.groovy.d/
@@ -46,6 +47,9 @@ USER root
 # a socket proxy
 COPY systemtests/jenkins/bin/start-docker-proxy /usr/local/bin/start-docker-proxy
 COPY systemtests/jenkins/bin/entrypoint /usr/local/bin/entrypoint
+
+# install the docker credential helper for environment variables
+COPY systemtests/jenkins/bin/docker-credential-environment /usr/local/bin/docker-credential-environment
 
 # make test repo and the local copy of pipelinelib accessible as a plugin via git
 COPY systemtests/jenkins/bin/stub-script /usr/local/bin/docker-pusher
