@@ -76,4 +76,7 @@ RUN cd /var/lib/git/pipelinelib && \
 
 USER jenkins
 
+RUN git config --global --add safe.directory /var/lib/git/pipelinelib/.git
+RUN git config --global --add safe.directory /var/lib/git/repo1/.git
+
 ENTRYPOINT /usr/local/bin/entrypoint
