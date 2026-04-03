@@ -1,7 +1,7 @@
 import jenkins.model.Jenkins
 
 Jenkins.instance.computers.each { c ->
-  c.node.labelString += "pipelinelib blubber dockerPublish chartPromote"
+  c.node.labelString += "pipelinelib Docker dockerPublish chartPromote"
 }
 
 Jenkins.instance.save()

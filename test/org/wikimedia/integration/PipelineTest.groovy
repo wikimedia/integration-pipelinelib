@@ -73,7 +73,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
   }
 
   void testGetDefaultNodeLabels_run() {
@@ -88,7 +88,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
   }
 
   void testGetDefaultNodeLabels_copy() {
@@ -101,7 +101,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "blubber"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
   }
 
   void testGetDefaultNodeLabels_publishImage() {
