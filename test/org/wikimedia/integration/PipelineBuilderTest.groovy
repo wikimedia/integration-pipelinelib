@@ -91,7 +91,7 @@ class PipelineBuilderTest extends GroovyTestCase {
 
       // 5. Executes the given pipeline on a new node.
       node { label, closure ->
-        assert label == "pipelinelib && Docker"
+        assert label == "pipelinelib && pipelinelib-build"
         closure()
       }
 

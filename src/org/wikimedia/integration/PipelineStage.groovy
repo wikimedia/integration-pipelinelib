@@ -344,15 +344,15 @@ class PipelineStage implements Serializable {
     def labels = [] as Set
 
     if (config.build || config.run || config.copy) {
-      labels.add("Docker")
+      labels.add("pipelinelib-build")
     }
 
     if (config.publish?.image) {
-      labels.add("dockerPublish")
+      labels.add("pipelinelib-publish")
     }
 
     if (config.promote) {
-      labels.add("chartPromote")
+      labels.add("pipelinelib-promote")
     }
 
     labels

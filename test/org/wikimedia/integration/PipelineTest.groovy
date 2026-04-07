@@ -73,7 +73,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "pipelinelib-build"] as Set
   }
 
   void testGetDefaultNodeLabels_run() {
@@ -88,8 +88,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
-  }
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "pipelinelib-build"] as Set  }
 
   void testGetDefaultNodeLabels_copy() {
     def pipeline = new Pipeline("foo", [
@@ -101,7 +100,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "Docker"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "pipelinelib-build"] as Set
   }
 
   void testGetDefaultNodeLabels_publishImage() {
@@ -118,7 +117,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "dockerPublish"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "pipelinelib-publish"] as Set
   }
 
   void testGetDefaultNodeLabels_promoteImage() {
@@ -131,7 +130,7 @@ class PipelineTest extends GroovyTestCase {
       ],
     ])
 
-    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "chartPromote"] as Set
+    assert pipeline.getRequiredNodeLabels() == ["pipelinelib", "pipelinelib-promote"] as Set
   }
 
   void testRunner() {
