@@ -1,4 +1,4 @@
-ARG VERSION=2.462.3
+ARG VERSION=2.555.1
 
 FROM jenkins/jenkins:${VERSION}-slim AS jenkins
 
@@ -19,12 +19,11 @@ RUN apt-get update && \
       postfix \
       python3-ruamel.yaml \
       socat \
-      software-properties-common \
-      sudo \
-    && \
-    ( curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - ) && \
-    add-apt-repository \
-      "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+      sudo && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/docker.gpg
+RUN echo "deb [arch=amd64] https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
