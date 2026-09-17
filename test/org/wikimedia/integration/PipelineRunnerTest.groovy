@@ -125,7 +125,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       writeFile { args ->
-        assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+        assert args.text == """|# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1
                                |version: v4
                                |base: ~
                                |# some comment
@@ -206,7 +206,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(
         new WorkflowScript(),
-        buildkitFrontend: "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0",
+        buildkitFrontend: "docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1",
       )
 
       def variant = "foo"
@@ -233,7 +233,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
         // It seems that docker will use the last syntax= line in the header so
         // let's make sure that is the one that is checked against ours
-        """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+        """|# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1
            |# syntax=some.other.example/frontend
            |version: v4
            |base: ~
@@ -243,7 +243,7 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       writeFile { args ->
-        assert args.text == """|# syntax=docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0
+        assert args.text == """|# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1
                                |version: v4
                                |base: ~
                                |variants:
@@ -310,7 +310,7 @@ class PipelineRunnerTest extends GroovyTestCase {
     mockWorkflow.use {
       def runner = new PipelineRunner(
         new WorkflowScript(),
-        buildkitFrontend: "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.10.0",
+        buildkitFrontend: "docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1",
       )
 
       def variant = "foo"

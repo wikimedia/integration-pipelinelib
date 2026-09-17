@@ -35,7 +35,7 @@ class PipelineRunner implements Serializable {
    * Image ref of the buildkit frontend to use during builds.
    * The image name used here must also be listed in {@link buildkitAllowedFrontends}.
    */
-  def buildkitFrontend = "docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.11.1"
+  def buildkitFrontend = "docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1"
 
   /**
    * Allowed BuildKit frontend image names.
