@@ -534,12 +534,21 @@ class PipelineRunner implements Serializable {
       }
     }
 
-    workflowScript.sh("""\
-        |git add -A
-        |git config user.email tcipriani+pipelinebot@wikimedia.org
-        |git config user.name PipelineBot
-        |git commit ${commitMessages}
-      |""".stripMargin())
+    // Explicitly set name/git which otherwise is inherited from Jenkins config
+    // and comes up with 'Wikimedia CI <releng@lists.wikimedia.org>' which is
+    // not a real one.
+    // https://phabricator.wikimedia.org/T438379
+    workflowScript.withEnv([
+      'GIT_AUTHOR_NAME=PipelineBot',
+      'GIT_COMMITTER_NAME=PipelineBot',
+      'GIT_AUTHOR_EMAIL=tcipriani+pipelinebot@wikimedia.org',
+      'GIT_COMMITTER_EMAIL=tcipriani+pipelinebot@wikimedia.org',
+    ]) {
+      workflowScript.sh("""\
+          |git add -A
+          |git commit ${commitMessages}
+        |""".stripMargin())
+    }
 
     try {
       workflowScript.withCredentials(

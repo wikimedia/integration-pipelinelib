@@ -795,11 +795,19 @@ class PipelineRunnerTest extends GroovyTestCase {
         assert cmd == "./update_version/update_version.py -s 'fooChart' -v 'fooVersion' "
       }
 
+      mockWorkflow.demand.withEnv { envs, Closure c ->
+        assert envs == [
+          'GIT_AUTHOR_NAME=PipelineBot',
+          'GIT_COMMITTER_NAME=PipelineBot',
+          'GIT_AUTHOR_EMAIL=tcipriani+pipelinebot@wikimedia.org',
+          'GIT_COMMITTER_EMAIL=tcipriani+pipelinebot@wikimedia.org',
+        ]
+        c()
+      }
+
       mockWorkflow.demand.sh { cmd ->
         assert cmd == """\
           |git add -A
-          |git config user.email tcipriani+pipelinebot@wikimedia.org
-          |git config user.name PipelineBot
           |git commit -m 'fooChart: pipeline bot promote' -m 'Promote fooChart to version fooVersion' -m 'Job: fooJob Build: 1234'
         |""".stripMargin()
       }
