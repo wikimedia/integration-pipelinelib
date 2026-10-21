@@ -58,6 +58,88 @@ class PipelineRunner implements Serializable {
   def deleteTempFiles = true
 
   /**
+   * Image ref of Grype, which scans image SBOMs for vulnerabilities before
+   * the images are published.
+   */
+  def grypeImage = "docker.io/anchore/grype:v0.121.0@sha256:621d56d1d68106b787022c81546f7e0a36202a25d1239f0c20195fab8c16f7ea"
+
+  /**
+   * Name of the Docker volume that keeps the Grype vulnerability database
+   * between scans. If the value is empty, Grype downloads the database for
+   * each scan.
+   */
+  def grypeDBVolume = "pipelinelib-grype-db"
+
+  /**
+   * Vulnerability IDs (CVE, GHSA, etc.) that block the publishing of an
+   * image. If Grype finds one of these in an image, publishing fails.
+   *
+   * php2shell: CVE-2026-109618, CVE-2026-109619
+   */
+  def grypeBlockedVulnerabilities = [
+    "CVE-2026-109618",
+    "CVE-2026-109619",
+  ]
+
+  /**
+   * Image ref of Syft, which generates the SBOM of an image for Grype.
+   */
+  def syftImage = "docker.io/anchore/syft:v1.55.0@sha256:4cc92b64ca74ffca4c94d4c8fcc01f217731375300be14d0b6eeb2e82eaa110a"
+
+  /**
+   * Rules that block the publishing of an image because of the software
+   * versions in its SBOM. Use these rules for vulnerabilities that are not
+   * yet in the Grype database.
+   *
+   * Each rule is a map with these keys:
+   *
+   * <dl>
+   * <dt><code>ids</code></dt>
+   * <dd>Vulnerability IDs to report when the rule matches.</dd>
+   *
+   * <dt><code>cpe</code></dt>
+   * <dd>Optional. CPE vendor and product, as <code>vendor:product</code>.
+   * The rule applies to each SBOM package that has a CPE with this vendor
+   * and product.</dd>
+   *
+   * <dt><code>purl</code></dt>
+   * <dd>Optional. Regular expression. The rule applies to each SBOM package
+   * that has a package URL (purl) in which the expression finds a match.</dd>
+   *
+   * <dt><code>fixedVersions</code></dt>
+   * <dd>First fixed version on each maintained release branch. The branch
+   * of a fixed version is all of its version parts except the last (for
+   * example, the branch of <code>8.2.35</code> is <code>8.2</code>). A
+   * package version is vulnerable if it is on a listed branch and is less
+   * than the fixed version of that branch. A package version is also
+   * vulnerable if it is less than all of the fixed versions, because its
+   * branch is not maintained. A package version on a branch that is more
+   * recent than all of the listed branches is not vulnerable.</dd>
+   * </dl>
+   *
+   * A rule applies to a package if its <code>cpe</code> or its
+   * <code>purl</code> matches the package.
+   */
+  def vulnerableVersionRules = [
+    // php2shell
+    [
+      ids: ["CVE-2026-109618", "CVE-2026-109619"],
+      fixedVersions: ["8.2.35", "8.3.36", "8.4.27", "8.5.12"],
+
+      // PHP binaries that the Syft binary classifier finds. The classifier
+      // does not report binaries that a Debian package installed.
+      cpe: "php:php",
+
+      // Debian packages that are built from the PHP source package (for
+      // example, php8.5-cli has the purl qualifier "upstream=php8.5").
+      // Their versions follow the PHP release (for example,
+      // "8.5.9-1+wmf12u1"). Packages from other source packages (for
+      // example, php-defaults or php-apcu) have unrelated versions.
+      purl: '^pkg:deb/.*[?&]upstream=php\\d+\\.\\d+(%40[^&]*)?(&|$)',
+    ],
+  ]
+
+  /**
    * Relative path to Helm config file.
    */
   def helmConfig = "helm.yaml"
@@ -507,6 +589,264 @@ class PipelineRunner implements Serializable {
     }
 
     nameAndTag
+  }
+
+  /**
+   * Scans the given image for vulnerabilities and fails if the image
+   * contains any of the vulnerabilities in {@link grypeBlockedVulnerabilities}
+   * or matches any of the {@link vulnerableVersionRules}.
+   *
+   * Syft reads the image from the local Docker daemon through the Docker
+   * socket, and writes an SPDX JSON SBOM of the image to a temporary file.
+   * Syft runs its default catalogers and also the binary classifier
+   * cataloger. This cataloger identifies binaries (for example, PHP) by
+   * their contents, so it also finds binaries that no package manager
+   * installed.
+   *
+   * The package versions in the SBOM are then compared to the
+   * {@link vulnerableVersionRules}.
+   *
+   * Grype then reads the SBOM and reports the vulnerabilities in it. The
+   * Grype database is kept in the {@link grypeDBVolume} Docker volume, so
+   * that Grype downloads only updates to it.
+   *
+   * Grype runs with <code>--by-cve</code>, so that it reports matches by CVE
+   * ID when one is available. The original ID (for example, a GHSA ID) is
+   * then a related vulnerability, which is also compared to the list.
+   *
+   * @param imageID Image ID.
+   */
+  void scanImage(String imageID) {
+    if (!grypeBlockedVulnerabilities && !vulnerableVersionRules) {
+      return
+    }
+
+    def imageName = assignLocalName(imageID)
+    def volumes = []
+    def envVars = [:]
+
+    if (grypeDBVolume) {
+      volumes += "${grypeDBVolume}:/grype-db".toString()
+      envVars["GRYPE_DB_CACHE_DIR"] = "/grype-db"
+    }
+
+    if (httpProxy) {
+      envVars["HTTP_PROXY"] = httpProxy
+      envVars["HTTPS_PROXY"] = httpProxy
+    }
+
+    def found = withTempFile("sbom.") { sbomFile ->
+      // Do not let the scan pass without an SBOM.
+      workflowScript.sh(sprintf(
+        'docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock %s %s ' +
+        '--select-catalogers +binary-classifier-cataloger --output spdx-json > %s\n' +
+        'test -s %s || { echo "syft gave no SBOM" >&2; exit 1; }',
+        arg(syftImage),
+        arg("docker:${imageName}"),
+        arg(sbomFile),
+        arg(sbomFile),
+      ))
+
+      def sbomFound = findVulnerableVersions(
+        parseJson(workflowScript.readFile(sbomFile)),
+        vulnerableVersionRules ?: [],
+      )
+
+      if (!grypeBlockedVulnerabilities) {
+        return sbomFound
+      }
+
+      // Grype reads the SBOM from stdin. Docker attaches stdin to the
+      // container only with --interactive.
+      def report = workflowScript.sh(
+        returnStdout: true,
+        script: sprintf(
+          'docker run --rm --interactive %s%s%s --by-cve --output json < %s',
+          volumes.collect { "--volume ${arg(it)} " }.join(""),
+          envs(envVars),
+          arg(grypeImage),
+          arg(sbomFile),
+        ),
+      )
+
+      // Do not let the scan pass without a report.
+      if (!report?.trim()) {
+        throw new RuntimeException("grype gave no report for image ${imageID}")
+      }
+
+      sbomFound + findVulnerabilities(parseJson(report), grypeBlockedVulnerabilities)
+    }
+
+    if (found) {
+      throw new RuntimeException(
+        "image ${imageID} contains blocked vulnerabilities:\n" + formatVulnerabilities(found)
+      )
+    }
+  }
+
+  /**
+   * Formats the given vulnerabilities as one line for each vulnerability ID.
+   * Each line gives the ID and its artifacts, in sorted order:
+   *
+   * <pre>  CVE-0000-0001: bar@2.0, foo@1.0</pre>
+   *
+   * @param vulnerabilities List of <code>[id: ..., artifact: ...]</code>
+   * maps, as returned by {@link findVulnerableVersions} and
+   * {@link findVulnerabilities}.
+   */
+  @NonCPS
+  static String formatVulnerabilities(List vulnerabilities) {
+    vulnerabilities.groupBy { it.id }.sort().collect { id, matches ->
+      "  ${id}: " + matches.collect { it.artifact }.unique().sort().join(", ")
+    }.join("\n")
+  }
+
+  /**
+   * Returns a list of <code>[id: ..., artifact: "name@version"]</code> maps
+   * for each package in the given parsed SPDX JSON SBOM that matches one of the
+   * given vulnerable version rules. See {@link vulnerableVersionRules}.
+   *
+   * A package without a version that can be compared matches the rule, so
+   * that the scan does not pass because of an unknown version.
+   *
+   * @param sbom Parsed SPDX JSON SBOM.
+   * @param rules Vulnerable version rules.
+   */
+  @NonCPS
+  static List findVulnerableVersions(Map sbom, List rules) {
+    if (!rules) {
+      return []
+    }
+
+    def found = [] as Set
+
+    (sbom?.packages ?: []).each { pkg ->
+      def refs = pkg.externalRefs ?: []
+
+      def products = refs.findAll { it.referenceType == "cpe23Type" }.collect { ref ->
+        // CPE 2.3 format: cpe:2.3:part:vendor:product:version:...
+        def parts = (ref.referenceLocator ?: "").toString().split(":")
+
+        parts.size() > 4 ? "${parts[3]}:${parts[4]}".toLowerCase() : null
+      } as Set
+
+      def purls = refs.findAll { it.referenceType == "purl" }.collect {
+        (it.referenceLocator ?: "").toString()
+      }
+
+      rules.each { rule ->
+        def cpeMatches = rule.cpe && rule.cpe.toString().toLowerCase() in products
+        def purlMatches = rule.purl && purls.any { it =~ rule.purl.toString() }
+
+        if (!cpeMatches && !purlMatches) {
+          return
+        }
+
+        if (isVulnerableVersion(pkg.versionInfo?.toString(), rule.fixedVersions)) {
+          rule.ids.each { id ->
+            found << [id: id.toString(), artifact: "${pkg.name}@${pkg.versionInfo}".toString()]
+          }
+        }
+      }
+    }
+
+    found as List
+  }
+
+  /**
+   * Returns whether the given version is vulnerable, given the first fixed
+   * version on each maintained release branch. See
+   * {@link vulnerableVersionRules}.
+   *
+   * Only the leading numeric parts of a version are compared, after an
+   * optional Debian epoch (for example, "1:8.2.20-1~deb12u1" is compared as
+   * 8.2.20). A version without leading numeric parts is vulnerable.
+   */
+  @NonCPS
+  static boolean isVulnerableVersion(String version, List fixedVersions) {
+    def parsed = parseVersion(version)
+
+    if (!parsed) {
+      return true
+    }
+
+    def fixed = fixedVersions.collect { parseVersion(it.toString()) }.findAll { it }
+
+    if (!fixed) {
+      return false
+    }
+
+    for (def fix in fixed) {
+      def branch = fix.take(fix.size() - 1)
+      def padded = parsed + [0] * Math.max(0, branch.size() - parsed.size())
+
+      if (padded.take(branch.size()) == branch) {
+        return compareVersions(parsed, fix) < 0
+      }
+    }
+
+    // The version is on a branch that is not listed. Branches that are less
+    // than all of the fixed versions are not maintained.
+    fixed.every { compareVersions(parsed, it) < 0 }
+  }
+
+  /**
+   * Returns the leading numeric parts of the given version as a list of
+   * integers, or null if there are none. An optional Debian epoch (for
+   * example, "1:") or "v" prefix is ignored.
+   */
+  @NonCPS
+  static List parseVersion(String version) {
+    def match = (version ?: "") =~ /^(?:\d+:)?v?(\d+(?:\.\d+)*)/
+
+    if (!match) {
+      return null
+    }
+
+    match[0][1].tokenize(".").collect { it as Integer }
+  }
+
+  /**
+   * Compares two versions that {@link parseVersion} returned. Missing parts
+   * are compared as zero.
+   */
+  @NonCPS
+  static int compareVersions(List a, List b) {
+    def size = Math.max(a.size(), b.size())
+
+    for (def i = 0; i < size; i++) {
+      def result = (i < a.size() ? a[i] : 0) <=> (i < b.size() ? b[i] : 0)
+
+      if (result != 0) {
+        return result
+      }
+    }
+
+    0
+  }
+
+  /**
+   * Returns a list of <code>[id: ..., artifact: "name@version"]</code> maps
+   * for each match in the given parsed Grype JSON report whose vulnerability ID, or
+   * related vulnerability ID, is in the given list.
+   *
+   * @param report Parsed Grype JSON report.
+   * @param vulnerabilityIDs Vulnerability IDs to find.
+   */
+  @NonCPS
+  static List findVulnerabilities(Map report, List vulnerabilityIDs) {
+    def blocked = vulnerabilityIDs.collect { it.toString().toUpperCase() } as Set
+    def found = [] as Set
+
+    (report?.matches ?: []).each { match ->
+      def ids = [match.vulnerability?.id] + (match.relatedVulnerabilities ?: []).collect { it.id }
+
+      ids.findAll { it && it.toString().toUpperCase() in blocked }.each { id ->
+        found << [id: id.toString(), artifact: "${match.artifact?.name}@${match.artifact?.version}".toString()]
+      }
+    }
+
+    found as List
   }
 
   void updateChart(chart, version, environments) {
