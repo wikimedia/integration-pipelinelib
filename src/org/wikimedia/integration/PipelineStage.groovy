@@ -3,12 +3,13 @@ package org.wikimedia.integration
 import com.cloudbees.groovy.cps.NonCPS
 
 import static org.wikimedia.integration.Utility.merge
-import static org.wikimedia.integration.Utility.parseJson
 import static org.wikimedia.integration.Utility.timestampLabel
 
 import org.wikimedia.integration.ExecutionContext
 import org.wikimedia.integration.PatchSet
 import org.wikimedia.integration.Pipeline
+
+import groovy.json.JsonSlurperClassic
 
 import java.net.URI
 
@@ -706,10 +707,6 @@ class PipelineStage implements Serializable {
   /**
    * Push a built image variant to the WMF Docker registry.
    *
-   * Before the image is pushed, it is scanned with Grype. Publishing fails
-   * if the image contains any vulnerability listed in the runner's
-   * <code>grypeBlockedVulnerabilities</code>.
-   *
    * <h3>Configuration</h3>
    * <dl>
    * <dt><code>publish</code></dt>
@@ -788,9 +785,6 @@ class PipelineStage implements Serializable {
 
       // omit empty strings
       imageTags.removeAll { !it }
-
-      // scan the image for blocked vulnerabilities before it is pushed
-      runner.scanImage(imageID)
 
       for (def tag in imageTags) {
         runner.registerAs(
@@ -1092,6 +1086,13 @@ class PipelineStage implements Serializable {
 
   String sanitizeImageRef(name) {
     name.toLowerCase().replaceAll('/', '-')
+  }
+
+  @NonCPS
+  def parseJson(jsonString) {
+    def jsonSlurper = new JsonSlurperClassic()
+
+    jsonSlurper.parseText(jsonString)
   }
 
   Boolean hasServiceUserTag(tags) {

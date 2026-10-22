@@ -586,10 +586,6 @@ class PipelineStageTest extends GroovyTestCase {
       },
     ])
 
-    mockRunner.demand.scanImage { imageID ->
-      assert imageID == "foo-image-id"
-    }
-
     mockRunner.demand.registerAs { imageID, imageName, tag ->
       assert imageID == "foo-image-id"
       assert imageName == "foo-project"

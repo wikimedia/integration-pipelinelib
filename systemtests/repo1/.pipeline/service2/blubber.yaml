@@ -1,6 +1,5 @@
-# syntax = docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1.9
 version: v3
-base: docker-registry.wikimedia.org/trixie:20261018
+base: docker-registry.wikimedia.org/bookworm:20240303
 apt: { packages: [make] }
 
 variants:

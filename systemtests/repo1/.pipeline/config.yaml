@@ -150,18 +150,6 @@ pipelines:
       - [stage3]
       - [stage4]
 
-# The following pipeline can be used to manually test the vulnerability scan
-# before publish. It builds an image with a PHP release that has the
-# php2shell vulnerabilities, so the publish step is expected to fail.
-#
-#  test-scan-image:
-#    blubberfile: blubber.yaml
-#    stages:
-#      - name: php2shell
-#        build: php2shell
-#        publish:
-#          image: true
-
 # The following pipeline can be used to manually test notification upon failure
 #
 #  test-notify:

@@ -1,9 +1,5 @@
 #!/bin/sh
 
-# The docker CLI closes its side of an attach connection when it has no
-# stdin. By default, socat then closes the connection after 0.5 seconds, and
-# the output of slower containers is lost. Keep the connection open.
 exec socat \
-  -t 3600 \
   UNIX-LISTEN:/var/run/docker.sock,fork,group=docker,mode=770 \
   UNIX-CONNECT:/var/run/docker.host.sock
