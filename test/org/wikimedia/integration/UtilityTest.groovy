@@ -123,6 +123,17 @@ class UtilityTestCase extends GroovyTestCase {
     assert parseImageRef(badRef) == null
   }
 
+  void testParseJson() {
+    def json = '{"foo": [1, "two", {"three": null}], "bar": true}'
+
+    def expected = [
+      foo: [1, "two", [three: null]],
+      bar: true,
+    ]
+
+    assert parseJson(json) == expected
+  }
+
   void testRandomAlphanum() {
     def expectedChars = ('a'..'z') + ('0'..'9')
     def alphanum = randomAlphanum(12)

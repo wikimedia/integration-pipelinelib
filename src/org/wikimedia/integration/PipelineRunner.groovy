@@ -58,6 +58,35 @@ class PipelineRunner implements Serializable {
   def deleteTempFiles = true
 
   /**
+   * Image ref of Grype, which scans image SBOMs for vulnerabilities before
+   * the images are published.
+   */
+  def grypeImage = "docker.io/anchore/grype:v0.121.0@sha256:621d56d1d68106b787022c81546f7e0a36202a25d1239f0c20195fab8c16f7ea"
+
+  /**
+   * Name of the Docker volume that keeps the Grype vulnerability database
+   * between scans. If the value is empty, Grype downloads the database for
+   * each scan.
+   */
+  def grypeDBVolume = "pipelinelib-grype-db"
+
+  /**
+   * Vulnerability IDs (CVE, GHSA, etc.) that block the publishing of an
+   * image. If the scan finds one of these in an image, publishing fails.
+   *
+   * php2shell: CVE-2026-109618, CVE-2026-109619
+   */
+  def blockedVulnerabilities = [
+    "CVE-2026-109618",
+    "CVE-2026-109619",
+  ]
+
+  /**
+   * Image ref of Syft, which generates the SBOM of an image for Grype.
+   */
+  def syftImage = "docker.io/anchore/syft:v1.55.0@sha256:4cc92b64ca74ffca4c94d4c8fcc01f217731375300be14d0b6eeb2e82eaa110a"
+
+  /**
    * Relative path to Helm config file.
    */
   def helmConfig = "helm.yaml"
@@ -507,6 +536,126 @@ class PipelineRunner implements Serializable {
     }
 
     nameAndTag
+  }
+
+  /**
+   * Scans the given image for vulnerabilities and fails if the image
+   * contains any of the vulnerabilities in {@link blockedVulnerabilities}.
+   *
+   * Syft reads the image from the local Docker daemon through the Docker
+   * socket, and writes an SPDX JSON SBOM of the image to a temporary file.
+   * Syft runs its default catalogers and also the binary classifier
+   * cataloger. This cataloger identifies binaries (for example, PHP) by
+   * their contents, so it also finds binaries that no package manager
+   * installed.
+   *
+   * Grype then reads the SBOM and reports the vulnerabilities in it. The
+   * Grype database is kept in the {@link grypeDBVolume} Docker volume, so
+   * that Grype downloads only updates to it.
+   *
+   * Grype runs with <code>--by-cve</code>, so that it reports matches by CVE
+   * ID when one is available. The original ID (for example, a GHSA ID) is
+   * then a related vulnerability, which is also compared to the list.
+   *
+   * @param imageID Image ID.
+   */
+  void scanImage(String imageID) {
+    if (!blockedVulnerabilities) {
+      return
+    }
+
+    def imageName = assignLocalName(imageID)
+    def volumes = []
+    def envVars = [:]
+
+    if (grypeDBVolume) {
+      volumes += "${grypeDBVolume}:/grype-db".toString()
+      envVars["GRYPE_DB_CACHE_DIR"] = "/grype-db"
+    }
+
+    if (httpProxy) {
+      envVars["HTTP_PROXY"] = httpProxy
+      envVars["HTTPS_PROXY"] = httpProxy
+    }
+
+    def found = withTempFile("sbom.") { sbomFile ->
+      // Do not let the scan pass without an SBOM.
+      workflowScript.sh(sprintf(
+        'docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock %s %s ' +
+        '--select-catalogers +binary-classifier-cataloger --output spdx-json > %s\n' +
+        'test -s %s || { echo "syft gave no SBOM" >&2; exit 1; }',
+        arg(syftImage),
+        arg("docker:${imageName}"),
+        arg(sbomFile),
+        arg(sbomFile),
+      ))
+
+      // Grype reads the SBOM from stdin. Docker attaches stdin to the
+      // container only with --interactive.
+      def report = workflowScript.sh(
+        returnStdout: true,
+        script: sprintf(
+          'docker run --rm --interactive %s%s%s --by-cve --output json < %s',
+          volumes.collect { "--volume ${arg(it)} " }.join(""),
+          envs(envVars),
+          arg(grypeImage),
+          arg(sbomFile),
+        ),
+      )
+
+      // Do not let the scan pass without a report.
+      if (!report?.trim()) {
+        throw new RuntimeException("grype gave no report for image ${imageID}")
+      }
+
+      findVulnerabilities(parseJson(report), blockedVulnerabilities)
+    }
+
+    if (found) {
+      throw new RuntimeException(
+        "image ${imageID} contains blocked vulnerabilities:\n" + formatVulnerabilities(found)
+      )
+    }
+  }
+
+  /**
+   * Formats the given vulnerabilities as one line for each vulnerability ID.
+   * Each line gives the ID and its artifacts, in sorted order:
+   *
+   * <pre>  CVE-0000-0001: bar@2.0, foo@1.0</pre>
+   *
+   * @param vulnerabilities List of <code>[id: ..., artifact: ...]</code>
+   * maps, as returned by {@link findVulnerabilities}.
+   */
+  @NonCPS
+  static String formatVulnerabilities(List vulnerabilities) {
+    vulnerabilities.groupBy { it.id }.sort().collect { id, matches ->
+      "  ${id}: " + matches.collect { it.artifact }.unique().sort().join(", ")
+    }.join("\n")
+  }
+
+  /**
+   * Returns a list of <code>[id: ..., artifact: "name@version"]</code> maps
+   * for each match in the given parsed Grype JSON report whose vulnerability ID, or
+   * related vulnerability ID, is in the given list.
+   *
+   * @param report Parsed Grype JSON report.
+   * @param vulnerabilityIDs Vulnerability IDs to find.
+   */
+  @NonCPS
+  static List findVulnerabilities(Map report, List vulnerabilityIDs) {
+    def blocked = vulnerabilityIDs.collect { it.toString().toUpperCase() } as Set
+    def found = [] as Set
+
+    (report?.matches ?: []).each { match ->
+      def ids = [match.vulnerability?.id] + (match.relatedVulnerabilities ?: []).collect { it.id }
+
+      ids.findAll { it && it.toString().toUpperCase() in blocked }.each { id ->
+        found << [id: id.toString(), artifact: "${match.artifact?.name}@${match.artifact?.version}".toString()]
+      }
+    }
+
+    found as List
   }
 
   void updateChart(chart, version, environments) {

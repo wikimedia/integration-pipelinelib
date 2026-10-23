@@ -897,6 +897,160 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testScanImage() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker tag 'foo-image-id' 'localhost/plib-image-randomfoo'"
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock " +
+        "'syft:foo' 'docker:localhost/plib-image-randomfoo' " +
+        "--select-catalogers +binary-classifier-cataloger --output spdx-json > '.pipeline/sbom.randomfoo'\n" +
+        "test -s '.pipeline/sbom.randomfoo' || { echo \"syft gave no SBOM\" >&2; exit 1; }"
+    }
+
+    mockWorkflow.demand.sh { Map args ->
+      assert args.returnStdout
+      assert args.script == "docker run --rm --interactive " +
+        "--volume 'pipelinelib-grype-db:/grype-db' " +
+        '-e "GRYPE_DB_CACHE_DIR=/grype-db" ' +
+        "'grype:foo' --by-cve --output json < '.pipeline/sbom.randomfoo'"
+
+      '''{"matches": [
+        {"vulnerability": {"id": "CVE-0000-0001"}, "artifact": {"name": "foo", "version": "1.0"}}
+      ]}'''
+    }
+
+    mockWorkflow.demand.sh { cmd ->
+      assert cmd == "rm -f '.pipeline/sbom.randomfoo'"
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        grypeImage: "grype:foo",
+        syftImage: "syft:foo",
+        blockedVulnerabilities: ["CVE-0000-0002"],
+      )
+
+      runner.scanImage("foo-image-id")
+    }
+  }
+
+  void testScanImage_withProxy() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh(2) { cmd -> }
+
+    mockWorkflow.demand.sh { Map args ->
+      assert args.script == "docker run --rm --interactive " +
+        '-e "HTTP_PROXY=http://proxy.example:8080" -e "HTTPS_PROXY=http://proxy.example:8080" ' +
+        "'grype:foo' --by-cve --output json < '.pipeline/sbom.randomfoo'"
+
+      '{}'
+    }
+
+    mockWorkflow.demand.sh { cmd -> }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        grypeImage: "grype:foo",
+        blockedVulnerabilities: ["CVE-0000-0002"],
+        grypeDBVolume: "",
+        httpProxy: "http://proxy.example:8080",
+      )
+
+      runner.scanImage("foo-image-id")
+    }
+  }
+
+  void testScanImage_emptyReport() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh(2) { cmd -> }
+    mockWorkflow.demand.sh { Map args -> "\n" }
+    mockWorkflow.demand.sh { cmd -> }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        blockedVulnerabilities: ["CVE-0000-0002"],
+      )
+
+      def msg = shouldFail(RuntimeException) {
+        runner.scanImage("foo-image-id")
+      }
+
+      assert msg.message == "grype gave no report for image foo-image-id"
+    }
+  }
+
+  void testScanImage_blocked() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.sh(2) { cmd -> }
+    mockWorkflow.demand.sh { Map args ->
+      '''{"matches": [
+        {"vulnerability": {"id": "CVE-0000-0001"}, "artifact": {"name": "foo", "version": "1.0"}},
+        {
+          "vulnerability": {"id": "GHSA-xxxx-yyyy-zzzz"},
+          "relatedVulnerabilities": [{"id": "CVE-0000-0002"}],
+          "artifact": {"name": "bar", "version": "2.0"}
+        }
+      ]}'''
+    }
+    mockWorkflow.demand.sh { cmd -> }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        blockedVulnerabilities: ["CVE-0000-0002"],
+      )
+
+      def msg = shouldFail(RuntimeException) {
+        runner.scanImage("foo-image-id")
+      }
+
+      assert msg.message == "image foo-image-id contains blocked vulnerabilities:\n  CVE-0000-0002: bar@2.0"
+    }
+  }
+
+  void testScanImage_noBlockedVulnerabilities() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        blockedVulnerabilities: [],
+      )
+
+      runner.scanImage("foo-image-id")
+    }
+  }
+
+  void testScanImage_defaultBlockedVulnerabilities() {
+    def runner = new PipelineRunner(new WorkflowScript())
+
+    assert "CVE-2026-109618" in runner.blockedVulnerabilities
+    assert "CVE-2026-109619" in runner.blockedVulnerabilities
+  }
+
+  void testFormatVulnerabilities() {
+    def vulnerabilities = [
+      [id: "CVE-0000-0002", artifact: "foo@1.0"],
+      [id: "CVE-0000-0001", artifact: "foo@1.0"],
+      [id: "CVE-0000-0001", artifact: "bar@2.0"],
+      [id: "CVE-0000-0001", artifact: "foo@1.0"],
+    ]
+
+    assert PipelineRunner.formatVulnerabilities(vulnerabilities) ==
+      "  CVE-0000-0001: bar@2.0, foo@1.0\n" +
+      "  CVE-0000-0002: foo@1.0"
+  }
+
   void testRemoveImage() {
     def mockWorkflow = new MockFor(WorkflowScript)
 

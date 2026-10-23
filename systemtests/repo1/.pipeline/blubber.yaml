@@ -1,5 +1,6 @@
+# syntax = docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1.9
 version: v4
-base: docker-registry.wikimedia.org/bookworm:20240303
+base: docker-registry.wikimedia.org/trixie:20261018
 
 variants:
   sh-local:
@@ -27,3 +28,5 @@ variants:
     entrypoint: [/bin/echo, -e]
   bash:
     entrypoint: [/bin/bash, -c]
+  php2shell:
+    base: docker-registry.wikimedia.org/php8.5-cli:8.5.9-2-20261018

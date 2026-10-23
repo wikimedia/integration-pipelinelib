@@ -2,6 +2,8 @@ package org.wikimedia.integration
 
 import com.cloudbees.groovy.cps.NonCPS
 
+import groovy.json.JsonSlurperClassic
+
 /**
  * Static functions of global utility plopped into a class.
  */
@@ -138,6 +140,17 @@ class Utility {
       tag: match[0][2],
       digest: match[0][3],
     ]
+  }
+
+  /**
+   * Parses the given JSON string. Objects are returned as maps and arrays as
+   * lists, which can be serialized by CPS.
+   *
+   * @param json JSON string.
+   */
+  @NonCPS
+  static def parseJson(String json) {
+    new JsonSlurperClassic().parseText(json)
   }
 
   /**
