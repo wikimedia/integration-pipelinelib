@@ -1,6 +1,6 @@
 # syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1
 version: v4
-base: docker-registry.wikimedia.org/releng/gradle:4.4.1
+base: docker-registry.wikimedia.org/releng/gradle:4.4.1-s5
 runs:
   environment:
     GRADLE_USER_HOME: ~ # use default gradle home (working directory)
