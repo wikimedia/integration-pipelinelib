@@ -169,8 +169,8 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       sh { script ->
-        assert script == ("DOCKER_BUILDKIT=1 docker --config '/tmp/dir' " +
-                          "build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+        assert script == ("docker --config '/tmp/dir' " +
+                          "buildx build --load --pull --label 'foo=a' --label 'bar=b' " +
                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
                           "--file '.pipeline/blubber.yaml.randomfoo' " +
                           "--target 'foo' 'foo/context/dir'")
@@ -282,8 +282,8 @@ class PipelineRunnerTest extends GroovyTestCase {
       }
 
       sh { script ->
-        assert script == ("DOCKER_BUILDKIT=1 docker --config '/tmp/dir' " +
-                          "build --pull --force-rm=true --label 'foo=a' --label 'bar=b' " +
+        assert script == ("docker --config '/tmp/dir' " +
+                          "buildx build --load --pull --label 'foo=a' --label 'bar=b' " +
                            "--iidfile '.pipeline/docker.iid.randomfoo' " +
                            "--file '.pipeline/blubber.yaml.randomfoo' " +
                            "--target 'foo' 'foo/dir'")

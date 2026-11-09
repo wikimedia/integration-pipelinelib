@@ -278,7 +278,7 @@ class PipelineRunner implements Serializable {
         // See https://github.com/moby/buildkit/issues/1078
         withDocker([ credsStore: "environment" ]) { docker ->
           workflowScript.sh(sprintf(
-            'DOCKER_BUILDKIT=1 %s build %s--force-rm=true %s --iidfile %s --file %s --target %s %s',
+            '%s buildx build --load %s%s --iidfile %s --file %s --target %s %s',
             docker,
             imagePullPolicy == "always" ? "--pull " : "",
             labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
