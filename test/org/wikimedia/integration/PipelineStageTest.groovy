@@ -22,7 +22,9 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: '${.stage}',
         context: '.',
-        imagePullPolicy: 'always'
+        imagePullPolicy: 'always',
+        provenance: true,
+        sbom: true,
       ],
       run: [
         image: '${.imageID}',
@@ -47,7 +49,9 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: '${.stage}',
         context: ".",
-        imagePullPolicy: 'always'
+        imagePullPolicy: 'always',
+        provenance: true,
+        sbom: true,
       ],
     ]
 
@@ -63,7 +67,9 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         context: ".",
-        imagePullPolicy: 'always'
+        imagePullPolicy: 'always',
+        provenance: true,
+        sbom: true,
       ],
     ]
 
@@ -80,10 +86,31 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         context: ".",
-        imagePullPolicy: 'never'
+        imagePullPolicy: 'never',
+        provenance: true,
+        sbom: true,
       ],
     ]
 
+    cfg = [
+      name: "foo",
+      build: [
+        variant: "bar",
+        provenance: false,
+        sbom: false,
+      ],
+    ]
+
+    assert PipelineStage.defaultConfig(cfg) == [
+      name: "foo",
+      build: [
+        variant: "bar",
+        context: ".",
+        imagePullPolicy: 'always',
+        provenance: false,
+        sbom: false,
+      ],
+    ]
   }
 
   void testDefaultConfig_run() {
@@ -98,7 +125,9 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         context: ".",
-        imagePullPolicy: 'always'
+        imagePullPolicy: 'always',
+        provenance: true,
+        sbom: true,
       ],
 
       // run: true means run the built image
@@ -310,12 +339,14 @@ class PipelineStageTest extends GroovyTestCase {
         c()
       }
 
-      build { variant, labels, context, excludes, imagePullPolicy ->
+      build { variant, labels, context, excludes, imagePullPolicy, provenance, sbom ->
         assert variant == "foovariant"
         assert labels == [foo: "foolabel", bar: "barlabel"]
         assert context == URI.create("foo/dir")
         assert excludes == [".git", "foo/docs/*"]
         assert imagePullPolicy == "always"
+        assert provenance == true
+        assert sbom == true
 
         "foo-image-id"
       }

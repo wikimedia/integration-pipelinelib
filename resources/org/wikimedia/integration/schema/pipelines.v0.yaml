@@ -176,6 +176,26 @@ definitions:
                 oneOf:
                   - $ref: '#/definitions/merge-expression'
                   - type: string
+              provenance:
+                description: >-
+                  Whether to generate and store provenance attestations for
+                  the image. A string gives the buildx attestation parameters
+                  (e.g. "mode=min") in place of the defaults.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: boolean
+                  - type: string
+                default: true
+              sbom:
+                description: >-
+                  Whether to generate and store SBOM attestations for the
+                  image. A string gives the buildx attestation parameters in
+                  place of the defaults.
+                oneOf:
+                  - $ref: '#/definitions/merge-expression'
+                  - type: boolean
+                  - type: string
+                default: true
       run:
         oneOf:
           - type: boolean

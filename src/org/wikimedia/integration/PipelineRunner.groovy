@@ -212,9 +212,14 @@ class PipelineRunner implements Serializable {
    * @param excludes Files/directories to exclude from build context. This
    * will be used to overwrite any existing .dockerignore prior to the build.
    * @param imagePullPolicy If "always", pass --pull to docker build.
+   * @param provenance Whether to generate and store provenance metadata. A
+   * string gives the attestation parameters (e.g. "mode=min") in place of
+   * the defaults.
+   * @param sbom Whether to generate and store SBOM metadata. A string gives
+   * the attestation parameters in place of the defaults.
    */
   String build(String variant, Map labels = [:], URI context = URI.create("."), List excludes = null,
-               String imagePullPolicy = "always") {
+               String imagePullPolicy = "always", provenance = true, sbom = true) {
     def cfg = getConfigFile(blubberConfig)
 
     if (!workflowScript.fileExists(cfg)) {
@@ -278,9 +283,11 @@ class PipelineRunner implements Serializable {
         // See https://github.com/moby/buildkit/issues/1078
         withDocker([ credsStore: "environment" ]) { docker ->
           workflowScript.sh(sprintf(
-            '%s buildx build --load %s%s --iidfile %s --file %s --target %s %s',
+            '%s buildx build --load %s--attest %s --attest %s %s --iidfile %s --file %s --target %s %s',
             docker,
             imagePullPolicy == "always" ? "--pull " : "",
+            arg(attestation("provenance", provenance, "mode=max")),
+            arg(attestation("sbom", sbom)),
             labelFlags, arg(imageIDFile), arg(dockerfile), arg(variant), arg(context),
           ))
         }
@@ -425,6 +432,26 @@ class PipelineRunner implements Serializable {
     }
 
     path.join("/")
+  }
+
+  /**
+   * Returns the value of a buildx --attest flag for the given attestation
+   * type.
+   *
+   * @param type Attestation type.
+   * @param params If true, use the default parameters. If false, disable the
+   * attestation. If a string, use it as the parameters.
+   * @param defaults Default parameters.
+   */
+  String attestation(String type, params, String defaults = "") {
+    // Buildx adds min provenance by default. Disable it explicitly.
+    if (params == false) {
+      params = "disabled=true"
+    } else if (params == true) {
+      params = defaults
+    }
+
+    params ? "type=${type},${params}" : "type=${type}"
   }
 
   /**

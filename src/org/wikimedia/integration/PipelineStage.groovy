@@ -149,6 +149,8 @@ class PipelineStage implements Serializable {
       dcfg.build.variant = dcfg.build.variant ?: '${.stage}'
       dcfg.build.context = dcfg.build.context ?: '.'
       dcfg.build.imagePullPolicy = dcfg.build.imagePullPolicy ?: 'always'
+      dcfg.build.provenance = dcfg.build.provenance == null ? true : dcfg.build.provenance
+      dcfg.build.sbom = dcfg.build.sbom == null ? true : dcfg.build.sbom
     }
 
     if (dcfg.run) {
@@ -527,6 +529,18 @@ class PipelineStage implements Serializable {
    *     <dd>Must be <code>"always"</code> or <code>"never"</code>.  
    *      If <code>"always"</code>, --pull will be passed to <code>docker build</code>.</dd>
    *     <dd>Default: <code>"always"</code></dd>
+   *
+   *     <dt><code>provenance</code></dt>
+   *     <dd>Whether to generate and store provenance metadata for this image.
+   *      A string gives the attestation parameters (e.g.
+   *      <code>"mode=min"</code>) in place of the defaults.</dd>
+   *     <dd>Default: <code>true</code> (<code>"mode=max"</code>)</dd>
+   *
+   *     <dt><code>sbom</code></dt>
+   *     <dd>Whether to generate and store SBOM metadata for this image.
+   *      A string gives the attestation parameters in place of the
+   *      defaults.</dd>
+   *     <dd>Default: <code>true</code></dd>
    *   </dl>
    * </dd>
    * </dl>
@@ -570,7 +584,9 @@ class PipelineStage implements Serializable {
         context["setup.imageLabels"],
         URI.create(context % config.build.context),
         context % config.build.excludes,
-        context % config.build.imagePullPolicy
+        context % config.build.imagePullPolicy,
+        context % config.build.provenance,
+        context % config.build.sbom
       )
     }
 

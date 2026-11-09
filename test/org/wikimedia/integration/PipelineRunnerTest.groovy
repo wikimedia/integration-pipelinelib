@@ -87,6 +87,16 @@ class PipelineRunnerTest extends GroovyTestCase {
     }
   }
 
+  void testAttestation() {
+    def runner = new PipelineRunner(new WorkflowScript())
+
+    assert runner.attestation("provenance", true, "mode=max") == "type=provenance,mode=max"
+    assert runner.attestation("provenance", false, "mode=max") == "type=provenance,disabled=true"
+    assert runner.attestation("provenance", "mode=min", "mode=max") == "type=provenance,mode=min"
+    assert runner.attestation("sbom", true) == "type=sbom"
+    assert runner.attestation("sbom", "generator=foo/scanner") == "type=sbom,generator=foo/scanner"
+  }
+
   void testBuild_checksWhetherConfigExists() {
     def mockWorkflow = new MockFor(WorkflowScript)
 
@@ -170,7 +180,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       sh { script ->
         assert script == ("docker --config '/tmp/dir' " +
-                          "buildx build --load --pull --label 'foo=a' --label 'bar=b' " +
+                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom' --label 'foo=a' --label 'bar=b' " +
                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
                           "--file '.pipeline/blubber.yaml.randomfoo' " +
                           "--target 'foo' 'foo/context/dir'")
@@ -219,6 +229,59 @@ class PipelineRunnerTest extends GroovyTestCase {
       ]
 
       assert runner.build(variant, labels, context, excludes) == "bf1e86190382"
+    }
+  }
+
+  void testBuild_disablesAttestations() {
+    def mockWorkflow = new MockFor(WorkflowScript)
+
+    mockWorkflow.demand.with {
+      fileExists { true }
+
+      readFile { args ->
+        """|# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1
+           |version: v4
+           |variants:
+           |  foo: {}
+           |""".stripMargin()
+      }
+
+      pwd { "/workspace" }
+
+      sh { args ->
+        assert args.script == "mktemp -d"
+
+        return "/tmp/dir\n"
+      }
+
+      writeJSON { args -> }
+
+      sh { script ->
+        assert script == ("docker --config '/tmp/dir' " +
+                          "buildx build --load --attest 'type=provenance,disabled=true' --attest 'type=sbom,disabled=true'  " +
+                          "--iidfile '.pipeline/docker.iid.randomfoo' " +
+                          "--file '.pipeline/blubber.yaml' " +
+                          "--target 'foo' '.'")
+      }
+
+      dir { path, c -> c() }
+
+      deleteDir {}
+
+      readFile { path -> "sha256:bf1e86190382" }
+
+      sh { script ->
+        assert script == "rm -f '.pipeline/docker.iid.randomfoo'"
+      }
+    }
+
+    mockWorkflow.use {
+      def runner = new PipelineRunner(
+        new WorkflowScript(),
+        buildkitFrontend: "docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1",
+      )
+
+      assert runner.build("foo", [:], URI.create("."), null, "never", false, false) == "bf1e86190382"
     }
   }
 
@@ -283,7 +346,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       sh { script ->
         assert script == ("docker --config '/tmp/dir' " +
-                          "buildx build --load --pull --label 'foo=a' --label 'bar=b' " +
+                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom' --label 'foo=a' --label 'bar=b' " +
                            "--iidfile '.pipeline/docker.iid.randomfoo' " +
                            "--file '.pipeline/blubber.yaml.randomfoo' " +
                            "--target 'foo' 'foo/dir'")
