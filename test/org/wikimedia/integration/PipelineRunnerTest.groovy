@@ -180,7 +180,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       sh { script ->
         assert script == ("docker --config '/tmp/dir' " +
-                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom' --label 'foo=a' --label 'bar=b' " +
+                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom,disabled=true' --label 'foo=a' --label 'bar=b' " +
                           "--iidfile '.pipeline/docker.iid.randomfoo' " +
                           "--file '.pipeline/blubber.yaml.randomfoo' " +
                           "--target 'foo' 'foo/context/dir'")
@@ -346,7 +346,7 @@ class PipelineRunnerTest extends GroovyTestCase {
 
       sh { script ->
         assert script == ("docker --config '/tmp/dir' " +
-                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom' --label 'foo=a' --label 'bar=b' " +
+                          "buildx build --load --pull --attest 'type=provenance,mode=max' --attest 'type=sbom,disabled=true' --label 'foo=a' --label 'bar=b' " +
                            "--iidfile '.pipeline/docker.iid.randomfoo' " +
                            "--file '.pipeline/blubber.yaml.randomfoo' " +
                            "--target 'foo' 'foo/dir'")

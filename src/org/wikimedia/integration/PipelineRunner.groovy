@@ -219,7 +219,7 @@ class PipelineRunner implements Serializable {
    * the attestation parameters in place of the defaults.
    */
   String build(String variant, Map labels = [:], URI context = URI.create("."), List excludes = null,
-               String imagePullPolicy = "always", provenance = true, sbom = true) {
+               String imagePullPolicy = "always", provenance = true, sbom = false) {
     def cfg = getConfigFile(blubberConfig)
 
     if (!workflowScript.fileExists(cfg)) {

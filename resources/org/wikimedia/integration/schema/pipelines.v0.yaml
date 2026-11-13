@@ -195,7 +195,7 @@ definitions:
                   - $ref: '#/definitions/merge-expression'
                   - type: boolean
                   - type: string
-                default: true
+                default: false
       run:
         oneOf:
           - type: boolean

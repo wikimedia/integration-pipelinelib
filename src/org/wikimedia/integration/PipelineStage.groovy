@@ -150,7 +150,7 @@ class PipelineStage implements Serializable {
       dcfg.build.context = dcfg.build.context ?: '.'
       dcfg.build.imagePullPolicy = dcfg.build.imagePullPolicy ?: 'always'
       dcfg.build.provenance = dcfg.build.provenance == null ? true : dcfg.build.provenance
-      dcfg.build.sbom = dcfg.build.sbom == null ? true : dcfg.build.sbom
+      dcfg.build.sbom = dcfg.build.sbom == null ? false : dcfg.build.sbom
     }
 
     if (dcfg.run) {
@@ -540,7 +540,7 @@ class PipelineStage implements Serializable {
    *     <dd>Whether to generate and store SBOM metadata for this image.
    *      A string gives the attestation parameters in place of the
    *      defaults.</dd>
-   *     <dd>Default: <code>true</code></dd>
+   *     <dd>Default: <code>false</code></dd>
    *   </dl>
    * </dd>
    * </dl>

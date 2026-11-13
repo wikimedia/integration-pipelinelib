@@ -24,7 +24,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: '.',
         imagePullPolicy: 'always',
         provenance: true,
-        sbom: true,
+        sbom: false,
       ],
       run: [
         image: '${.imageID}',
@@ -51,7 +51,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: ".",
         imagePullPolicy: 'always',
         provenance: true,
-        sbom: true,
+        sbom: false,
       ],
     ]
 
@@ -69,7 +69,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: ".",
         imagePullPolicy: 'always',
         provenance: true,
-        sbom: true,
+        sbom: false,
       ],
     ]
 
@@ -88,7 +88,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: ".",
         imagePullPolicy: 'never',
         provenance: true,
-        sbom: true,
+        sbom: false,
       ],
     ]
 
@@ -97,7 +97,7 @@ class PipelineStageTest extends GroovyTestCase {
       build: [
         variant: "bar",
         provenance: false,
-        sbom: false,
+        sbom: true,
       ],
     ]
 
@@ -108,7 +108,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: ".",
         imagePullPolicy: 'always',
         provenance: false,
-        sbom: false,
+        sbom: true,
       ],
     ]
   }
@@ -127,7 +127,7 @@ class PipelineStageTest extends GroovyTestCase {
         context: ".",
         imagePullPolicy: 'always',
         provenance: true,
-        sbom: true,
+        sbom: false,
       ],
 
       // run: true means run the built image
@@ -346,7 +346,7 @@ class PipelineStageTest extends GroovyTestCase {
         assert excludes == [".git", "foo/docs/*"]
         assert imagePullPolicy == "always"
         assert provenance == true
-        assert sbom == true
+        assert sbom == false
 
         "foo-image-id"
       }
